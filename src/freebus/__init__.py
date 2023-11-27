@@ -1,0 +1,3 @@
+"""freebus"""
+
+from . import main

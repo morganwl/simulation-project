@@ -2,10 +2,10 @@
 
 ## To-Do
 
-- [ ] create basic deployment workflow
-  - [ ] python project
-  - [ ] Docker container
-  - [ ] deployment script
+- [X] create basic deployment workflow
+  - [X] python project
+  - [X] Docker container
+  - [X] deployment script
 - [ ] paper outline of simulation model
   - [X] what am I measuring
   - [X] what are the fixed parameters
