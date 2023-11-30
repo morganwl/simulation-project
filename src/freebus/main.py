@@ -3,16 +3,14 @@
 import argparse
 import csv
 from collections import namedtuple, defaultdict
-from dataclasses import dataclass
 import os
-from heapq import heappush, heappop
-from random import random as uniform
 
 import numpy as np
 
+from .trial import simulate
+
 SPEED = 20/60
 
-Event = namedtuple('Event', ['time', 'dur', 'etype', 'route', 'stop', 'busid', 'passengers'])
 
 class Experiment:
     """Object containing experimental parameters."""
@@ -29,31 +27,6 @@ class Experiment:
         self.schedule = schedule
         self.headers = headers
 
-
-@dataclass
-class Stop:
-    """State structure for a single bus stop."""
-    last_load: float = 0
-    remaining: int = 0
-
-
-class Bus:
-    """State structure for a single bus."""
-    def __init__(self, route, stop, time):
-        self.state = 'unload'
-        self.route = route
-        self.stop = stop
-        self.time = time
-        self.id = time
-        self.passengers = 0
-        self.active = True
-
-    def __repr__(self):
-        return f'{type(self).__name__}({self.route}, {self.stop}, {self.time}, id={self.id}, state={self.state})'
-
-
-    def __lt__(self, other):
-        return self.time < other.time
 
 class Defaults:
     """Default values."""
@@ -88,79 +61,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def generate_event(bus, stops, experiment):
-    """Generates an event based on the current state of bus, and updates
-    states."""
-    if bus.state == 'unload':
-        return generate_event_unload(bus, experiment)
-    if bus.state == 'load':
-        return generate_event_load(bus, stops, experiment)
-    if bus.state == 'depart':
-        return generate_event_depart(bus, experiment)
-
-
-def generate_event_depart(bus, experiment):
-    t = (experiment.distance[bus.route][bus.stop] / SPEED /
-            experiment.traffic(bus.route, bus.stop, bus.time))
-    event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, 0)
-    bus.time += t
-    bus.stop += 1
-    if bus.stop < experiment.routes[bus.route]:
-        bus.state = 'unload'
-    else:
-        bus.active = False
-    return event
-
-def generate_event_load(bus, stops, experiment):
-    delta = bus.time - stops[bus.route][bus.stop].last_load
-    n = experiment.demand_loading(bus.route, bus.stop, bus.time, delta)
-    t = sum(experiment.time_loading(bus.passengers - i)
-            for i in range(n))
-    event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
-    stops[bus.route][bus.stop].last_load = bus.time
-    bus.time += t
-    bus.passengers += n
-    if n == 0:
-        bus.state = 'depart'
-    return event
-
-
-def generate_event_unload(bus, experiment):
-    """Generates an unload event."""
-    demand_pct = (experiment.demand_unloading(bus.route, bus.stop, bus.time)
-            / sum(experiment.demand_unloading(bus.route, s, bus.time)
-                for s in range(bus.stop, experiment.routes[bus.route])))
-    n = sum(uniform() < demand_pct for _ in range(bus.passengers))
-    t = sum(experiment.time_unloading(bus.passengers - i)
-            for i in range(n))
-    event = Event(bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
-    bus.time += t
-    bus.passengers -= n
-    bus.state = 'load'
-    return event
-
-
-def simulate(experiment):
-    """Returns a list of simulated events."""
-    events = []
-    queue = []
-    stops = []
-    for route in experiment.routes:
-        r = []
-        for _ in range(route):
-            r.append(Stop())
-        stops.append(r)
-    for i, route in enumerate(experiment.schedule):
-        for bus in route:
-            heappush(queue, Bus(i, 0, bus))
-    while queue:
-        bus = heappop(queue)
-        event = generate_event(bus, stops, experiment)
-        events.append(event)
-        if bus.active:
-            heappush(queue, bus)
-    return events
-
 
 def measure(events, headers):
     """Returns an array of variables, measured from a list of events."""
@@ -190,7 +90,7 @@ def measure_holding(event, rv, buses, _):
     if event.etype == 'hold':
         rv['holding-time'] += buses[(event.route, event.busid)] * event.dur
 
-def measure_passengers(event, rv, *args):
+def measure_passengers(event, rv, *_):
     """Measures the number of passengers."""
     if event.etype == 'load':
         rv['total-passengers'] += event.passengers
@@ -209,7 +109,6 @@ def simulate_batch(experiment, batch_size):
         batch[i] = measure(simulate(experiment), experiment.headers)
     return batch
 
-
 def write_batch(batch, headers, output):
     """Appends a batch to a csv file, creating a new one with headers if
     no such file exists."""
@@ -221,7 +120,6 @@ def write_batch(batch, headers, output):
         if write_headers:
             writer.writerow(headers)
         writer.writerows(batch)
-
 
 def main(experiment, numtrials, output, batchsize=40):
     """Performs trials and appends the results for each to an output csv."""
@@ -251,7 +149,6 @@ def main(experiment, numtrials, output, batchsize=40):
     for v in var:
         print(f'{v:18f}', end='')
     print()
-
 
 def confidence_interval(trials, rng, confidence=.95):
     """Returns a (min,max) confidence interval for each column in trials."""
