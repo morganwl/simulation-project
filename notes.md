@@ -1,3 +1,9 @@
+## Thu Nov 30
+
+We need to measure waiting time, not just loading time.
+
+Time to refactor.
+
 ## Wed Nov 29
 
 What states need to be tracked:

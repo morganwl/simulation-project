@@ -47,23 +47,17 @@ def test_write_batch(tmpdir):
     batch = np.array([[7., 8., 9.], [10., 11., 12.]])
     expected.extend(batch.tolist())
     fb.main.write_batch(batch, headers, output)
-    print(expected)
     with open(output, newline='', encoding='utf8') as csvfile:
         reader = csv.reader(csvfile)
         result = [next(reader)]
         result.extend([[float(v) for v in row] for row in reader])
         assert expected == result
 
-def test_simulate_batch(monkeypatch):
+def test_simulate_batch():
     """Tests returning a batch of simulation results."""
-    class Experiment:
-        # pylint: disable=too-few-public-methods
-        """Experiment stub."""
-        headers = ['a', 'b']
-    monkeypatch.setattr(fb.main, 'simulate', lambda x: np.ones(len(x.headers)))
-    monkeypatch.setattr(fb.main, 'measure', lambda x, y: x)
-    batch = fb.main.simulate_batch(Experiment, 3)
-    assert (batch == np.array([[1., 1.], [1., 1.], [1., 1.]])).all()
+    experiment = deterministic_experiment_stub()
+    batch = fb.main.simulate_batch(experiment, 3)
+    assert (batch == np.array([[1., 3., 0., 1.], [1., 3., 0., 1.], [1., 3., 0., 1.]])).all()
 
 def test_simulate():
     """Tests that a simple simulation returns a list of events."""
@@ -78,6 +72,28 @@ def test_simulate():
             (15, 0, 'depart', 0, 1, 10, 0)]
     events = fb.main.simulate(experiment)
     assert events == expected
+
+def test_measure():
+    """Tests that measure takes a list of events and returns a single
+    set of random variables."""
+    experiment = deterministic_experiment_stub()
+    expected_loading = 4
+    expected_moving = 8
+    expected_holding = 0
+    expected_passengers = 2
+    expected = np.array([
+        expected_loading, expected_moving,
+        expected_holding, expected_passengers])
+    events = [
+            fb.main.Event(10, 0, 'unload', 0, 0, 10, 0),
+            fb.main.Event(10, 2, 'load', 0, 0, 10, 2),
+            fb.main.Event(12, 0, 'load', 0, 0, 10, 0),
+            fb.main.Event(12, 4, 'depart', 0, 0, 10, 0),
+            fb.main.Event(16, 2, 'unload', 0, 1, 10, -2),
+            fb.main.Event(18, 0, 'load', 0, 1, 10, 0),
+            fb.main.Event(18, 0, 'depart', 0, 1, 10, 0)]
+    result = fb.main.measure(events, experiment.headers)
+    assert (result == expected).all()
 
 def test_generate_event_unload():
     """Tests that an unload event with simple parameters returns an

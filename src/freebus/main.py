@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+from collections import namedtuple, defaultdict
 from dataclasses import dataclass
 import os
 from heapq import heappush, heappop
@@ -10,6 +11,8 @@ from random import random as uniform
 import numpy as np
 
 SPEED = 20/60
+
+Event = namedtuple('Event', ['time', 'dur', 'etype', 'route', 'stop', 'busid', 'passengers'])
 
 class Experiment:
     """Object containing experimental parameters."""
@@ -99,7 +102,7 @@ def generate_event(bus, stops, experiment):
 def generate_event_depart(bus, experiment):
     t = (experiment.distance[bus.route][bus.stop] / SPEED /
             experiment.traffic(bus.route, bus.stop, bus.time))
-    event = (bus.time, t, 'depart', bus.route, bus.stop, bus.id, 0)
+    event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, 0)
     bus.time += t
     bus.stop += 1
     if bus.stop < experiment.routes[bus.route]:
@@ -113,7 +116,7 @@ def generate_event_load(bus, stops, experiment):
     n = experiment.demand_loading(bus.route, bus.stop, bus.time, delta)
     t = sum(experiment.time_loading(bus.passengers - i)
             for i in range(n))
-    event = (bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
+    event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
     stops[bus.route][bus.stop].last_load = bus.time
     bus.time += t
     bus.passengers += n
@@ -130,7 +133,7 @@ def generate_event_unload(bus, experiment):
     n = sum(uniform() < demand_pct for _ in range(bus.passengers))
     t = sum(experiment.time_unloading(bus.passengers - i)
             for i in range(n))
-    event = (bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
+    event = Event(bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
     bus.time += t
     bus.passengers -= n
     bus.state = 'load'
@@ -161,7 +164,43 @@ def simulate(experiment):
 
 def measure(events, headers):
     """Returns an array of variables, measured from a list of events."""
+    buses = defaultdict(int)
+    stops = {}
+    handlers = [rv_handlers[h] for h in headers]
+    rv = {h:0 for h in headers}
+    for e in events:
+        busid = (e.route, e.busid)
+        buses[busid] += e.passengers
+        for h in handlers:
+            h(e, rv, buses, stops)
+    return np.fromiter((rv[h] for h in headers), dtype=np.float64, count=len(headers))
 
+def measure_loading(event, rv, buses, _):
+    """Updates the measurement of loading rv based on an event."""
+    if event.etype in ['load', 'unload']:
+        rv['loading-time'] += buses[(event.route, event.busid)] * event.dur
+
+def measure_moving(event, rv, buses, _):
+    """Updates the measurement of moving rv based on an event."""
+    if event.etype == 'depart':
+        rv['moving-time'] += buses[(event.route, event.busid)] * event.dur
+
+def measure_holding(event, rv, buses, _):
+    """Measures the time spent holding."""
+    if event.etype == 'hold':
+        rv['holding-time'] += buses[(event.route, event.busid)] * event.dur
+
+def measure_passengers(event, rv, *args):
+    """Measures the number of passengers."""
+    if event.etype == 'load':
+        rv['total-passengers'] += event.passengers
+
+rv_handlers = {
+        'loading-time': measure_loading,
+        'moving-time': measure_moving,
+        'holding-time': measure_holding,
+        'total-passengers': measure_passengers
+        }
 
 def simulate_batch(experiment, batch_size):
     """Returns an array of results for a batch of trials."""
@@ -187,12 +226,13 @@ def write_batch(batch, headers, output):
 def main(experiment, numtrials, output, batchsize=20):
     """Performs trials and appends the results for each to an output csv."""
     batches = []
-    numbatches = int(np.ceil(numtrials / batchsize))
-    for _ in range(numbatches):
+    while numtrials:
+        if numtrials < batchsize:
+            batchsize = numtrials
         batch = simulate_batch(experiment, batchsize)
         write_batch(batch, experiment.headers, output)
-        print(batch)
         batches.append(batch)
+        numtrials -= batchsize
 
 def cli_entry():
     """Entry point for command line script."""

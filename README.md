@@ -11,16 +11,12 @@
   - [X] what are the fixed parameters
   - [X] what are the random parameters
   - [ ] how are the random parameters distributed
-- [ ] skeleton feature: print expected result for an empty bus system to
-  standard output
-  - [ ] test
-  - [ ] feature
 - [ ] 0.1.0 features
-  - [ ] two-stop, fixed parameter bus system
-  - [ ] generate csv document for each command-line invocation
+  - [X] two-stop, fixed parameter bus system
+  - [X] generate csv document for each command-line invocation
     containing results for all trials
-    - [ ] test
-    - [ ] feature
+    - [X] test
+    - [X] feature
   - [ ] calculate and report variance
     - [ ] test
     - [ ] feature
