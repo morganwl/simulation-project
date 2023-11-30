@@ -133,3 +133,16 @@ def test_generate_event_depart_last():
     event = fb.main.generate_event(bus, stops, experiment)
     assert event == expected
     assert bus.active is False
+
+def test_confidence_interval():
+    """Tests that confidence intervals are of the desired form."""
+    trials = np.column_stack([
+        np.arange(0, 20, 1),
+        np.arange(100, 120, 1),
+        np.arange(1000, 1020, 1),
+        ])
+    intervals = fb.main.confidence_interval(trials, np.random.default_rng())
+    assert intervals.shape == (3,2)
+    assert (intervals[0] < intervals[1]).all()
+    assert (intervals[1] < intervals[2]).all()
+    assert (intervals[:,0] <= intervals[:,1]).all()

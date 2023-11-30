@@ -17,12 +17,10 @@
     containing results for all trials
     - [X] test
     - [X] feature
-  - [ ] calculate and report variance
-    - [ ] test
-    - [ ] feature
-  - [ ] calculate and report 95% confidence intervals
-    - [ ] test
-    - [ ] feature
+  - [X] calculate and report variance
+  - [X] calculate and report 95% confidence intervals
+    - [X] test
+    - [X] feature
   - [ ] report simulation parameters
     - [ ] test
     - [ ] feature
@@ -32,6 +30,7 @@
     - [ ] memory usage per trial
     - [ ] rns used per trial
 - [ ] 0.2.0 features
+  - [ ] non-deterministic trials
   - [ ] input parameters via json
   - [ ] single line with multiple stops
 - [ ] 0.3.0 features

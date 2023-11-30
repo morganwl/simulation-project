@@ -223,16 +223,46 @@ def write_batch(batch, headers, output):
         writer.writerows(batch)
 
 
-def main(experiment, numtrials, output, batchsize=20):
+def main(experiment, numtrials, output, batchsize=40):
     """Performs trials and appends the results for each to an output csv."""
-    batches = []
-    while numtrials:
-        if numtrials < batchsize:
-            batchsize = numtrials
+    rng = np.random.default_rng()
+    print(f'{"var":6s}', end='')
+    for h in experiment.headers:
+        print(f'{h:>18s}', end='')
+    print()
+    trials = np.empty((numtrials, len(experiment.headers)), dtype=np.float64)
+    i = 0
+    while i < numtrials:
+        if numtrials - i < batchsize:
+            batchsize = numtrials - i
         batch = simulate_batch(experiment, batchsize)
         write_batch(batch, experiment.headers, output)
-        batches.append(batch)
-        numtrials -= batchsize
+        trials[i:i+batchsize] = batch
+        i += batchsize
+        means = np.mean(trials[:i], axis=0)
+        intervals = confidence_interval(trials[:i], rng)
+        print(f'{"mean":6s}', end='')
+        for m,ci in zip(means, intervals):
+            print(f'{m:6.3f} ({ci[0]:4.2f},{ci[1]:4.2f})', end='')
+        print(end='\r')
+    var = np.var(trials[:i], axis=0)
+    print()
+    print(f'{"var":6s}', end='')
+    for v in var:
+        print(f'{v:18f}', end='')
+    print()
+
+
+def confidence_interval(trials, rng, confidence=.95):
+    """Returns a (min,max) confidence interval for each column in trials."""
+    header = (1 - confidence) / 2
+    means = np.empty((1000, trials.shape[1]), dtype=np.float64)
+    for i in range(means.shape[0]):
+        means[i] = np.mean(rng.choice(trials, trials.shape[0]), axis=0)
+    intervals = np.column_stack([
+        np.percentile(means, header, axis=0),
+        np.percentile(means, 1-header, axis=0)])
+    return intervals
 
 def cli_entry():
     """Entry point for command line script."""
