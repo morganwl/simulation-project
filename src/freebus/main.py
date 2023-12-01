@@ -3,9 +3,7 @@
 import argparse
 import csv
 from collections import defaultdict
-import hashlib
 import os
-import zlib
 
 import numpy as np
 

@@ -1,6 +1,5 @@
 """Test the Experiment object class."""
 
-import freebus as fb
 from freebus.experiments import Experiment
 from freebus.randomvar import Fixed, FixedAlternating
 
