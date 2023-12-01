@@ -86,7 +86,7 @@ class Trial:
     def generate_event_load(self, bus):
         """Generate a load event."""
         delta = bus.time - self.stops[bus.route][bus.stop].last_load
-        n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, delta)
+        n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, scale=delta)
         t = sum(self.experiment.time_loading(bus.passengers - i)
                 for i in range(n))
         event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
@@ -99,8 +99,8 @@ class Trial:
 
     def generate_event_unload(self, bus):
         """Generates an unload event."""
-        demand_pct = (self.experiment.demand_unloading(bus.route, bus.stop, bus.time)
-                / sum(self.experiment.demand_unloading(bus.route, s, bus.time)
+        demand_pct = (self.experiment.demand_unloading.expected(bus.route, bus.stop, bus.time)
+                / sum(self.experiment.demand_unloading.expected(bus.route, s, bus.time)
                     for s in range(bus.stop, self.experiment.routes[bus.route])))
         n = sum(self.rng.uniform() < demand_pct for _ in range(bus.passengers))
         t = sum(self.experiment.time_unloading(bus.passengers - i)

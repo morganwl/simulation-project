@@ -27,4 +27,3 @@ class Experiment:
         f'{self.routes}, {self.distance}, {self.schedule}, {self.headers}, '
         f'traffic={self.traffic}, demand_loading={self.demand_loading}, '
         f'demand_unloading={self.demand_unloading}, time_loading={self.time_loading})')
-

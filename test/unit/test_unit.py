@@ -30,9 +30,52 @@ def test_simulate_batch(deterministic_experiment):
     batch = fb.main.simulate_batch(deterministic_experiment, 3)
     assert (batch == np.array([[1., 3., 0., 1.], [1., 3., 0., 1.], [1., 3., 0., 1.]])).all()
 
-def test_measure(deterministic_experiment):
+def test_simulate_deterministic_experiment(deterministic_experiment):
+    """The deterministic experiment should always yield the same
+    sequence of events."""
+    events = fb.main.simulate(deterministic_experiment)
+    assert events == [
+            Event(10, 0, 'unload', 0, 0, 10, 0),
+            Event(10, 1, 'load', 0, 0, 10, 1),
+            Event(11, 0, 'load', 0, 0, 10, 0),
+            Event(11, 3, 'depart', 0, 0, 10, 0),
+            Event(14, 1, 'unload', 0, 1, 10, -1),
+            Event(15, 0, 'load', 0, 1, 10, 0),
+            Event(15, 0, 'depart', 0, 1, 10, 0),
+            ]
+
+def test_measure_deterministic_experiment(deterministic_experiment):
+    """The deterministic experiment should always yield the same
+    results."""
+    events = fb.main.simulate(deterministic_experiment)
+    results = fb.main.measure(events, deterministic_experiment.headers)
+    assert (results == np.array([1., 3., 0., 1.])).all()
+
+def test_measure_one_passenger(deterministic_experiment):
     """Tests that measure takes a list of events and returns a single
     set of random variables."""
+    expected_loading = 1
+    expected_moving = 4
+    expected_holding = 0
+    expected_passengers = 1
+    expected = np.array([
+        expected_loading, expected_moving,
+        expected_holding, expected_passengers])
+    events = [
+            Event(10, 0, 'unload', 0, 0, 10, 0),
+            Event(10, 1, 'load', 0, 0, 10, 1),
+            Event(11, 0, 'load', 0, 0, 10, 0),
+            Event(12, 4, 'depart', 0, 0, 10, 0),
+            Event(16, 1, 'unload', 0, 1, 10, -1),
+            Event(17, 0, 'load', 0, 1, 10, 0),
+            Event(17, 0, 'depart', 0, 1, 10, 0)]
+    result = fb.main.measure(events, deterministic_experiment.headers)
+    assert (result == expected).all()
+
+def test_measure_two_passengers(deterministic_experiment):
+    """Tests that measure takes a list of events and returns a single
+    set of random variables."""
+    # note that all times are summed over ALL passengers
     expected_loading = 4
     expected_moving = 8
     expected_holding = 0

@@ -58,3 +58,12 @@ def test_poisson_conditional_rv():
     assert np.mean(rv(0,0,n=10000)) == pytest.approx(5, rel=0.1)
     assert np.mean(rv(0,1,n=10000)) == pytest.approx(9, rel=0.1)
     assert np.mean(rv(0,2,n=10000)) == pytest.approx(5, rel=0.1)
+
+def test_poisson_time_rv():
+    """An optional extra parameter should be understood as time and
+    scale the Poisson parameter."""
+    rv = Pois([Fixed(5), Fixed(9)])
+    assert np.mean(rv(0,scale=1,n=10000)) == pytest.approx(5, rel=0.1)
+    assert np.mean(rv(0,scale=.5,n=10000) + rv(0,scale=.5,n=10000)) == pytest.approx(5, rel=0.1)
+    assert np.mean(rv(1,scale=2,n=10000)) == pytest.approx(18, rel=0.1)
+    assert np.mean(rv(1,scale=.5,n=10000) + rv(1,scale=.5,n=10000)) == pytest.approx(9, rel=0.1)
