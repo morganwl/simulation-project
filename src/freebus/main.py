@@ -2,31 +2,18 @@
 
 import argparse
 import csv
-from collections import namedtuple, defaultdict
+from collections import defaultdict
+import hashlib
 import os
+import zlib
 
 import numpy as np
 
 from .trial import simulate
+from .experiments import Experiment
+from .randomvar import Fixed, FixedAlternating
 
 SPEED = 20/60
-
-
-class Experiment:
-    """Object containing experimental parameters."""
-    def __init__(self, routes, distance, traffic, demand_loading,
-            demand_unloading, time_loading, time_unloading,
-            schedule, headers):
-        self.routes = routes
-        self.distance = distance
-        self.traffic = traffic
-        self.demand_loading = demand_loading
-        self.demand_unloading = demand_unloading
-        self.time_loading = time_loading
-        self.time_unloading = time_unloading
-        self.schedule = schedule
-        self.headers = headers
-
 
 class Defaults:
     """Default values."""
@@ -34,17 +21,21 @@ class Defaults:
     # this is a static data object
     numtrials = 1000
     batchsize = 20
-    experiment = None
+    experiment = 'simple'
+    output = os.path.join('results', '{checksum}.csv')
+    params_cache = os.path.join('results', 'params_cache.txt')
     experiments = {
             'simple': Experiment(
-                [2], [[0, 1]],
-                lambda r,s,t: 1,
-                lambda r,s,t,d: 1 if t in {0, 10} else 0,
-                lambda r,s,t: [0,1][s],
-                lambda p: 1,
-                lambda p: 1,
-                [[0, 10]],
-                ['loading-time', 'moving-time', 'holding-time', 'total-passengers']),
+                routes=[2],
+                distance=[[1,0]],
+                traffic=Fixed(1),
+                demand_loading=FixedAlternating([[[1,0], [0,0]]]),
+                demand_unloading=Fixed([[0, 1]]),
+                time_loading=Fixed(1),
+                time_unloading=Fixed(1),
+                schedule=[[10]],
+                headers=['loading-time', 'moving-time', 'holding-time', 'total-passengers']
+                )
             }
 
 def parse_args() -> argparse.Namespace:
@@ -54,13 +45,13 @@ def parse_args() -> argparse.Namespace:
             type=int, default=Defaults.numtrials)
     parser.add_argument('--experiment', '-x', help='predefined experiment profile to use',
             default=Defaults.experiment, type=Defaults.experiments.get)
-    parser.add_argument('--output', '-o', help='file to append results to')
+    parser.add_argument('--output', '-o', help='file to append results to',
+            default=Defaults.output)
     parser.add_argument('--batchsize', '-b',
             help='number of trials to perform in a single batch',
             default=Defaults.batchsize)
+    parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
-
-
 
 def measure(events, headers):
     """Returns an array of variables, measured from a list of events."""
@@ -121,9 +112,25 @@ def write_batch(batch, headers, output):
             writer.writerow(headers)
         writer.writerows(batch)
 
-def main(experiment, numtrials, output, batchsize=40):
+def update_params_cache(experiment, params_cache):
+    """Update the params_cache with the current experiment parameters
+    and their checksum."""
+    checksum = experiment.checksum()
+    if os.path.exists(params_cache):
+        with open(params_cache, encoding='utf8') as f:
+            for line in f:
+                if line.startswith(checksum):
+                    return
+    with open(params_cache, 'a', encoding='utf8') as f:
+        f.write(f'{checksum}: ')
+        f.write(str(experiment))
+        f.write('\n')
+
+def main(experiment, numtrials, output, batchsize=40, params_cache=None):
     """Performs trials and appends the results for each to an output csv."""
     rng = np.random.default_rng()
+    if params_cache is not None:
+        update_params_cache(experiment, params_cache)
     print(f'{"var":6s}', end='')
     for h in experiment.headers:
         print(f'{h:>18s}', end='')
@@ -164,5 +171,6 @@ def confidence_interval(trials, rng, confidence=.95):
 def cli_entry():
     """Entry point for command line script."""
     options = parse_args()
+    options.output = options.output.format(checksum=options.experiment.checksum())
     main(options.experiment, options.numtrials, options.output,
-            batchsize=options.batchsize)
+            batchsize=options.batchsize, params_cache=options.params_cache)

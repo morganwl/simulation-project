@@ -2,33 +2,37 @@
 
 import pytest
 
+from freebus.experiments import Experiment
+from freebus.randomvar import Fixed, FixedAlternating
+
 @pytest.fixture
 def deterministic_experiment():
     """Provides a simple deterministic experiment object."""
-    class Experiment:
-    # pylint: disable=missing-docstring, unused-argument
-        routes = [2]
-        distance = [[1, 0]]
-        schedule = [[10]]
-        headers = ['loading-time', 'moving-time', 'holding-time', 'total-passengers']
-        def traffic(self, r, s, t):
-            return 1
+    # class Experiment:
+    # # pylint: disable=missing-docstring, unused-argument
+    #     routes = [2]
+    #     distance = [[1, 0]]
+    #     schedule = [[10]]
+    #     headers = ['loading-time', 'moving-time', 'holding-time', 'total-passengers']
+    #     traffic = Fixed(1)
+    #     demand_loading = FixedAlternating([[[1,0], [0,0]]])
+    #     demand_unloading = Fixed([[0, 1]])
+    #     time_loading = Fixed(1)
+    #     time_unloading = Fixed(1)
 
-        def demand_loading(self, r, s, t, d):
-            if s == 0 and d > 1:
-                return 1
-            return 0
-
-        def demand_unloading(self, r, s, t):
-            return [0,1][s]
-
-        def time_loading(self, p):
-            return 1
-
-        def time_unloading(self, p):
-            return 1
-
-        def __repr__(self):
-            return (f'{type(self).__name__}('
-            f'{self.routes}, {self.distance}, {self.schedule}, {self.headers})')
-    return Experiment()
+    #     def __repr__(self):
+    #         return (f'{type(self).__name__}('
+    #         f'{self.routes}, {self.distance}, {self.schedule}, {self.headers}, '
+    #         f'traffic={self.traffic}, demand_loading={self.demand_loading}, '
+    #         f'demand_unloading={self.demand_unloading}, time_loading={self.time_loading})')
+    return Experiment(
+            routes=[2],
+            distance=[[1,0]],
+            schedule=[[10]],
+            traffic=Fixed(1),
+            demand_loading=FixedAlternating([[[1,0], [0,0]]]),
+            demand_unloading=Fixed([[0, 1]]),
+            time_loading=Fixed(1),
+            time_unloading=Fixed(1),
+            headers=['loading-time', 'moving-time', 'holding-time', 'total-passengers']
+            )

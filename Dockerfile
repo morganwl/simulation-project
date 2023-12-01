@@ -9,4 +9,5 @@ ADD requirements.txt .
 RUN pip install -r requirements.txt
 COPY --from=build dist ./dist
 RUN pip install dist/freebus-*.tar.gz
-RUN python
+RUN mkdir results
+CMD fbsimulate
