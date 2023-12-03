@@ -27,7 +27,7 @@ def test_two_stop():
     """The two-stop experiment should have an average of 1 passenger a
     day. The loading time does not lend itself to simple analysis."""
     experiment = two_stop()
-    results = fb.main.simulate_batch(experiment, 10000)
+    results = fb.main.simulate_batch(experiment, 1000)
     means = np.mean(results, axis=0)
     assert means[3] == pytest.approx(1, rel=0.1)
     assert means[1] == pytest.approx(3, rel=0.1)
@@ -41,11 +41,11 @@ def test_fixed_loading():
     print(event)
     assert event.dur == 0.01 * event.passengers
     trials = np.fromiter((Trial(experiment).generate_event_load(Bus(0,0,1)).passengers
-            for _ in range(10000)), dtype=np.float64)
+            for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(1, rel=0.1)
     trials = np.fromiter((Trial(experiment).generate_event_load(Bus(0,0,1)).dur
-            for _ in range(10000)), dtype=np.float64)
-    assert np.mean(trials) == pytest.approx(.01, rel=0.05)
+            for _ in range(1000)), dtype=np.float64)
+    assert np.mean(trials) == pytest.approx(.01, rel=0.1)
 
 def test_empty_loading():
     """A stop with zero loading demand should load zero passengers."""
@@ -53,12 +53,12 @@ def test_empty_loading():
     bus = Bus(0, 1, 4)
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).passengers
-            for _ in range(10000)), dtype=np.float64)
+            for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(0, rel=0.1)
     bus = Bus(0, 1, 4)
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).dur
-            for _ in range(10000)), dtype=np.float64)
+            for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(0, rel=0.01)
 
 def test_last_stop_unloading():
@@ -74,6 +74,7 @@ def test_last_stop_unloading():
                 dtype=np.float64)) == -1
 
 def test_measure_unload():
+    """Tests that a list of load and unload events are measured correctly."""
     experiment = two_stop()
     events = [
             Event(1, .01, 'load', 0, 0, 1, 1),

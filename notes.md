@@ -1,3 +1,13 @@
+## Sat Dec 2
+
+We need a way for an event to indicate waiting time for a number of
+passengers. Currently, that is not possible.
+
+For now, I will try two things. First, I will change the event to track
+the number of passengers as a state, not a delta. Second, I will add an
+additional field for the number of passengers at a bus stop. This way, a
+'wait' event can affect the number of passengers at a stop.
+
 ## Thu Nov 30
 
 We need to measure waiting time, not just loading time.

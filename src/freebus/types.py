@@ -1,5 +1,13 @@
 """Shared data types."""
 
-from collections import namedtuple
+from dataclasses import dataclass
 
-Event = namedtuple('Event', ['time', 'dur', 'etype', 'route', 'stop', 'busid', 'passengers'])
+@dataclass(slots=True, order=True, frozen=True)
+class Event:
+    time: float
+    dur: float
+    etype: str
+    route: int
+    stop: int
+    busid: int
+    passengers: int

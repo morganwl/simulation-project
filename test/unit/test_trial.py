@@ -9,13 +9,13 @@ from freebus.trial import Trial, simulate, Bus
 def test_simulate(deterministic_experiment):
     """Tests that a simple simulation returns a list of events."""
     expected = [
-            (10, 0, 'unload', 0, 0, 10, 0),
-            (10, 1, 'load', 0, 0, 10, 1),
-            (11, 0, 'load', 0, 0, 10, 0),
-            (11, 3, 'depart', 0, 0, 10, 0),
-            (14, 1, 'unload', 0, 1, 10, -1),
-            (15, 0, 'load', 0, 1, 10, 0),
-            (15, 0, 'depart', 0, 1, 10, 0)]
+            Event(10, 0, 'unload', 0, 0, 10, 0),
+            Event(10, 1, 'load', 0, 0, 10, 1),
+            Event(11, 0, 'load', 0, 0, 10, 0),
+            Event(11, 3, 'depart', 0, 0, 10, 0),
+            Event(14, 1, 'unload', 0, 1, 10, -1),
+            Event(15, 0, 'load', 0, 1, 10, 0),
+            Event(15, 0, 'depart', 0, 1, 10, 0)]
     events = simulate(deterministic_experiment)
     assert events == expected
 
@@ -45,7 +45,7 @@ def test_generate_event_load(deterministic_experiment):
 
 def test_generate_event_depart_last(deterministic_experiment):
     """Tests that an apart event will set a bus to inactive at the last stop."""
-    expected = (16, 0, 'depart', 0, 1, 10, 0)
+    expected = Event(16, 0, 'depart', 0, 1, 10, 0)
     bus = Bus(0, 0, 10)
     bus.state = 'depart'
     bus.stop = 1

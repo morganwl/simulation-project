@@ -89,10 +89,10 @@ class Trial:
         n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, scale=delta)
         t = sum(self.experiment.time_loading(bus.passengers - i)
                 for i in range(n))
-        event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
-        self.stops[bus.route][bus.stop].last_load = bus.time
-        bus.time += t
         bus.passengers += n
+        self.stops[bus.route][bus.stop].last_load = bus.time
+        event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
+        bus.time += t
         if n == 0:
             bus.state = 'depart'
         return event
@@ -105,9 +105,9 @@ class Trial:
         n = sum(self.rng.uniform() < demand_pct for _ in range(bus.passengers))
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
+        bus.passengers -= n
         event = Event(bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
         bus.time += t
-        bus.passengers -= n
         bus.state = 'load'
         return event
 

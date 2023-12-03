@@ -35,7 +35,7 @@ Our overall model makes the following assumptions and simplifications:
     - [X] feature
 - [ ] 0.2.0 features
   - [ ] non-deterministic trials
-  - [ ] input parameters via json
+  - [ ] input parameters via YAML
   - [ ] single line with multiple stops
   - [ ] calculate and report benchmarks
     - [ ] events processed
