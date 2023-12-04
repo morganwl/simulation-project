@@ -19,6 +19,10 @@ class Fixed:
         """Returns the expected value for any given parameters."""
         return self.val[tuple(args[:self.dim])]
 
+    def distribute_time(self, n, t):
+        """Returns the sum of arrival times, given n arrivals over time t."""
+        return sum(i * t/n for i in range(1, n+1))
+
     def __repr__(self):
         return f'{type(self).__name__}({self.val})'
 
@@ -38,6 +42,10 @@ class FixedAlternating:
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
         return np.mean(self.val[tuple(args[:self.dim])])
+
+    def distribute_time(self, n, t):
+        """Returns the sum of arrival times, given n arrivals over time t."""
+        return sum(i * t/(n+1) for i in range(1, n+1))
 
     def __repr__(self):
         return f'{type(self).__name__}({np.array_str(self.val)})'.replace('\n', '')
@@ -63,6 +71,10 @@ class Pois:
             return mean(*args[self.dim:])
         except TypeError:
             return mean
+
+    def distribute_time(self, n, t):
+        """Returns the sum of arrival times, given n arrivals over time t."""
+        return sum(self.rng.uniform(0, t) for _ in range(n))
 
     def __repr__(self):
         return f'{type(self).__name__}({np.array_str(self.mean)})'.replace('\n', '')

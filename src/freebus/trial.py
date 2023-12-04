@@ -13,7 +13,7 @@ SPEED = 20/60
 class Stop:
     """State structure for a single bus stop."""
     last_load: float = 0
-    remaining: int = 0
+    waiting: int = 0
 
 class Bus:
     """State structure for a single bus."""
@@ -64,6 +64,8 @@ class Trial:
         states."""
         if bus.state == 'unload':
             return self.generate_event_unload(bus)
+        if bus.state == 'wait':
+            return self.generate_event_wait(bus)
         if bus.state == 'load':
             return self.generate_event_load(bus)
         if bus.state == 'depart':
@@ -83,18 +85,34 @@ class Trial:
             bus.active = False
         return event
 
+    def generate_event_wait(self, bus):
+        """Generate a passenger wait event."""
+        stop = self.stops[bus.route][bus.stop]
+        delta = bus.time - stop.last_load
+        n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, scale=delta)
+        t = (self.experiment.demand_loading.distribute_time(n, delta)
+            + delta * stop.waiting)
+        stop.waiting += n
+        if n > 0:
+            bus.state = 'load'
+        else:
+            bus.state = 'depart'
+        if stop.waiting:
+            t /= stop.waiting
+        return Event(bus.time, t, 'wait',
+                bus.route, bus.stop, bus.id, 0, stop.waiting)
+
     def generate_event_load(self, bus):
         """Generate a load event."""
-        delta = bus.time - self.stops[bus.route][bus.stop].last_load
-        n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, scale=delta)
+        n = self.stops[bus.route][bus.stop].waiting
         t = sum(self.experiment.time_loading(bus.passengers - i)
                 for i in range(n))
         bus.passengers += n
-        self.stops[bus.route][bus.stop].last_load = bus.time
+        self.stops[bus.route][bus.stop].waiting -= n
         event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
         bus.time += t
-        if n == 0:
-            bus.state = 'depart'
+        self.stops[bus.route][bus.stop].last_load = bus.time
+        bus.state = 'wait'
         return event
 
     def generate_event_unload(self, bus):
@@ -108,7 +126,7 @@ class Trial:
         bus.passengers -= n
         event = Event(bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
         bus.time += t
-        bus.state = 'load'
+        bus.state = 'wait'
         return event
 
 def simulate(experiment, rng=None):

@@ -36,11 +36,12 @@ def test_simulate_deterministic_experiment(deterministic_experiment):
     events = fb.main.simulate(deterministic_experiment)
     assert events == [
             Event(10, 0, 'unload', 0, 0, 10, 0),
+            Event(10, 5, 'wait', 0, 0, 10, 0, 1),
             Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'load', 0, 0, 10, 0),
+            Event(11, 0, 'wait', 0, 0, 10, 0),
             Event(11, 3, 'depart', 0, 0, 10, 0),
             Event(14, 1, 'unload', 0, 1, 10, -1),
-            Event(15, 0, 'load', 0, 1, 10, 0),
+            Event(15, 0, 'wait', 0, 1, 10, 0),
             Event(15, 0, 'depart', 0, 1, 10, 0),
             ]
 

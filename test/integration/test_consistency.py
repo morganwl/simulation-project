@@ -32,18 +32,26 @@ def test_two_stop():
     assert means[3] == pytest.approx(1, rel=0.1)
     assert means[1] == pytest.approx(3, rel=0.1)
 
+def wait_and_load(experiment, route, stop, t):
+    """Return a load event after generating a wait event."""
+    trial = Trial(experiment)
+    bus = Bus(route, stop, t)
+    trial.generate_event_wait(bus)
+    return trial.generate_event_load(bus)
+
 def test_fixed_loading():
     """A fixed loading time should yield a consistent duration for loading events."""
     experiment = two_stop()
     trial = Trial(experiment)
     bus = Bus(0, 0, 1)
+    trial.stops[0][0].waiting = 1
     event = trial.generate_event_load(bus)
     print(event)
     assert event.dur == 0.01 * event.passengers
-    trials = np.fromiter((Trial(experiment).generate_event_load(Bus(0,0,1)).passengers
+    trials = np.fromiter((wait_and_load(experiment, 0, 0, 1).passengers
             for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(1, rel=0.1)
-    trials = np.fromiter((Trial(experiment).generate_event_load(Bus(0,0,1)).dur
+    trials = np.fromiter((wait_and_load(experiment, 0, 0, 1).dur
             for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(.01, rel=0.1)
 
