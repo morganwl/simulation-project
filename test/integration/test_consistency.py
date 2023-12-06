@@ -9,19 +9,21 @@ from freebus.randomvar import Fixed, Pois
 from freebus.trial import Trial, Bus
 import freebus as fb
 
+
 def two_stop():
     """Returns a simple two-stop system."""
     return Experiment(
-            routes = [2],
-            distance = [[1, 0]],
-            traffic = Fixed(1),
-            demand_loading = Pois([[1, 0]]),
-            demand_unloading = Pois([[0, 1]]),
-            time_loading = Fixed(.01),
-            time_unloading = Fixed(.1),
-            schedule = [[1]],
-            headers=['loading-time', 'moving-time', 'holding-time', 'total-passengers']
-            )
+        routes=[2],
+        distance=[[1, 0]],
+        traffic=Fixed(1),
+        demand_loading=Pois([[1, 0]]),
+        demand_unloading=Pois([[0, 1]]),
+        time_loading=Fixed(.01),
+        time_unloading=Fixed(.1),
+        schedule=[[1]],
+        headers=['waiting-time', 'loading-time', 'moving-time',
+                 'holding-time', 'total-passengers']
+    )
 
 def test_two_stop():
     """The two-stop experiment should have an average of 1 passenger a

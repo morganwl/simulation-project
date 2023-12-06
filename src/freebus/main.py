@@ -9,9 +9,10 @@ import numpy as np
 
 from .trial import simulate
 from .experiments import Experiment
-from .randomvar import Fixed, FixedAlternating
+from .randomvar import Fixed, FixedAlternating, Pois
 
 SPEED = 20/60
+
 
 class Defaults:
     """Default values."""
@@ -19,22 +20,36 @@ class Defaults:
     # this is a static data object
     numtrials = 1000
     batchsize = 20
-    experiment = 'simple'
+    experiment = 'two-stop'
     output = os.path.join('results', '{checksum}.csv')
     params_cache = os.path.join('results', 'params_cache.txt')
     experiments = {
-            'simple': Experiment(
-                routes=[2],
-                distance=[[1,0]],
-                traffic=Fixed(1),
-                demand_loading=FixedAlternating([[[1,0], [0,0]]]),
-                demand_unloading=Fixed([[0, 1]]),
-                time_loading=Fixed(1),
-                time_unloading=Fixed(1),
-                schedule=[[10]],
-                headers=['loading-time', 'moving-time', 'holding-time', 'total-passengers']
-                )
-            }
+        'simple': Experiment(
+            routes=[2],
+            distance=[[1, 0]],
+            traffic=Fixed(1),
+            demand_loading=FixedAlternating([[[1, 0], [0, 0]]]),
+            demand_unloading=Fixed([[0, 1]]),
+            time_loading=Fixed(1),
+            time_unloading=Fixed(1),
+            schedule=[[10]],
+            headers=['waiting-time', 'loading-time', 'moving-time',
+                     'holding-time', 'total-passengers']
+        ),
+        'two-stop': Experiment(
+            routes=[2],
+            distance=[[1, 0]],
+            traffic=Fixed(1),
+            demand_loading=Pois([[1, 0]]),
+            demand_unloading=Pois([[0, 1]]),
+            time_loading=Fixed(.01),
+            time_unloading=Fixed(.1),
+            schedule=[[1]],
+            headers=['waiting-time', 'loading-time', 'moving-time',
+                     'holding-time', 'total-passengers']
+        )
+    }
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
@@ -51,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
 
+
 def measure(events, headers):
     """Returns an array of variables, measured from a list of events."""
     buses = defaultdict(int)
@@ -62,34 +78,47 @@ def measure(events, headers):
         buses[busid] += e.passengers
         for h in handlers:
             h(e, rv, buses, stops)
-    return np.fromiter((rv[h] for h in headers), dtype=np.float64, count=len(headers))
+    return np.fromiter((rv[h] for h in headers), dtype=np.float64,
+                       count=len(headers))
+
+
+def measure_waiting(event, rv, *_):
+    """Updates the measurement of waiting rv based on an event."""
+    rv['waiting-time'] += event.waiting * event.dur
+
 
 def measure_loading(event, rv, buses, _):
     """Updates the measurement of loading rv based on an event."""
     if event.etype in ['load', 'unload']:
         rv['loading-time'] += buses[(event.route, event.busid)] * event.dur
 
+
 def measure_moving(event, rv, buses, _):
     """Updates the measurement of moving rv based on an event."""
     if event.etype == 'depart':
         rv['moving-time'] += buses[(event.route, event.busid)] * event.dur
+
 
 def measure_holding(event, rv, buses, _):
     """Measures the time spent holding."""
     if event.etype == 'hold':
         rv['holding-time'] += buses[(event.route, event.busid)] * event.dur
 
+
 def measure_passengers(event, rv, *_):
     """Measures the number of passengers."""
     if event.etype == 'load':
         rv['total-passengers'] += event.passengers
 
+
 rv_handlers = {
-        'loading-time': measure_loading,
-        'moving-time': measure_moving,
-        'holding-time': measure_holding,
-        'total-passengers': measure_passengers
-        }
+    'waiting-time': measure_waiting,
+    'loading-time': measure_loading,
+    'moving-time': measure_moving,
+    'holding-time': measure_holding,
+    'total-passengers': measure_passengers,
+}
+
 
 def simulate_batch(experiment, batch_size):
     """Returns an array of results for a batch of trials."""
@@ -97,6 +126,7 @@ def simulate_batch(experiment, batch_size):
     for i in range(batch_size):
         batch[i] = measure(simulate(experiment), experiment.headers)
     return batch
+
 
 def write_batch(batch, headers, output):
     """Appends a batch to a csv file, creating a new one with headers if
@@ -109,6 +139,7 @@ def write_batch(batch, headers, output):
         if write_headers:
             writer.writerow(headers)
         writer.writerows(batch)
+
 
 def update_params_cache(experiment, params_cache):
     """Update the params_cache with the current experiment parameters
@@ -123,6 +154,7 @@ def update_params_cache(experiment, params_cache):
         f.write(f'{checksum}: ')
         f.write(str(experiment))
         f.write('\n')
+
 
 def main(experiment, numtrials, output, batchsize=40, params_cache=None):
     """Performs trials and appends the results for each to an output csv."""
@@ -145,7 +177,7 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
         means = np.mean(trials[:i], axis=0)
         intervals = confidence_interval(trials[:i], rng)
         print(f'{"mean":6s}', end='')
-        for m,ci in zip(means, intervals):
+        for m, ci in zip(means, intervals):
             print(f'{m:6.3f} ({ci[0]:4.2f},{ci[1]:4.2f})', end='')
         print(end='\r')
     var = np.var(trials[:i], axis=0)
@@ -155,20 +187,24 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
         print(f'{v:18f}', end='')
     print()
 
+
 def confidence_interval(trials, rng, confidence=.95):
     """Returns a (min,max) confidence interval for each column in trials."""
-    header = (1 - confidence) / 2
+    # NB: numpy percentile inputs percentage as n in [0,100].
+    header = 100 * ((1 - confidence) / 2)
     means = np.empty((1000, trials.shape[1]), dtype=np.float64)
     for i in range(means.shape[0]):
         means[i] = np.mean(rng.choice(trials, trials.shape[0]), axis=0)
     intervals = np.column_stack([
         np.percentile(means, header, axis=0),
-        np.percentile(means, 1-header, axis=0)])
+        np.percentile(means, 100-header, axis=0)])
     return intervals
+
 
 def cli_entry():
     """Entry point for command line script."""
     options = parse_args()
-    options.output = options.output.format(checksum=options.experiment.checksum())
+    options.output = options.output.format(
+        checksum=options.experiment.checksum())
     main(options.experiment, options.numtrials, options.output,
-            batchsize=options.batchsize, params_cache=options.params_cache)
+         batchsize=options.batchsize, params_cache=options.params_cache)

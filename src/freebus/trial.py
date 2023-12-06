@@ -9,11 +9,13 @@ from .types import Event
 
 SPEED = 20/60
 
+
 @dataclass
 class Stop:
     """State structure for a single bus stop."""
     last_load: float = 0
     waiting: int = 0
+
 
 class Bus:
     """State structure for a single bus."""
@@ -28,11 +30,12 @@ class Bus:
 
     def __repr__(self):
         return (f'{type(self).__name__}'
-        f'({self.route}, {self.stop}, {self.time}, id={self.id}, state={self.state})')
-
+                f'({self.route}, {self.stop}, {self.time}, '
+                f'id={self.id}, state={self.state})')
 
     def __lt__(self, other):
         return self.time < other.time
+
 
 class Trial:
     """Object to manage state for a single trial."""
@@ -74,8 +77,8 @@ class Trial:
 
     def generate_event_depart(self, bus):
         """Generate a depart event."""
-        t = (self.experiment.distance[bus.route][bus.stop] / SPEED /
-                self.experiment.traffic(bus.route, bus.stop, bus.time))
+        t = (self.experiment.distance[bus.route][bus.stop] / SPEED
+             / self.experiment.traffic(bus.route, bus.stop, bus.time))
         event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, 0)
         bus.time += t
         bus.stop += 1
@@ -89,9 +92,10 @@ class Trial:
         """Generate a passenger wait event."""
         stop = self.stops[bus.route][bus.stop]
         delta = bus.time - stop.last_load
-        n = self.experiment.demand_loading(bus.route, bus.stop, bus.time, scale=delta)
+        n = self.experiment.demand_loading(bus.route, bus.stop,
+                                           bus.time, scale=delta)
         t = (self.experiment.demand_loading.distribute_time(n, delta)
-            + delta * stop.waiting)
+             + delta * stop.waiting)
         stop.waiting += n
         if n > 0:
             bus.state = 'load'
@@ -99,8 +103,8 @@ class Trial:
             bus.state = 'depart'
         if stop.waiting:
             t /= stop.waiting
-        return Event(bus.time, t, 'wait',
-                bus.route, bus.stop, bus.id, 0, stop.waiting)
+        return Event(bus.time, t, 'wait', bus.route, bus.stop, bus.id,
+                     0, stop.waiting)
 
     def generate_event_load(self, bus):
         """Generate a load event."""
@@ -117,9 +121,13 @@ class Trial:
 
     def generate_event_unload(self, bus):
         """Generates an unload event."""
-        demand_pct = (self.experiment.demand_unloading.expected(bus.route, bus.stop, bus.time)
-                / sum(self.experiment.demand_unloading.expected(bus.route, s, bus.time)
-                    for s in range(bus.stop, self.experiment.routes[bus.route])))
+        demand_pct = (
+            self.experiment.demand_unloading.expected(bus.route,
+                                                      bus.stop,
+                                                      bus.time)
+            / sum(self.experiment.demand_unloading.expected(bus.route,
+                                                            s, bus.time)
+                  for s in range(bus.stop, self.experiment.routes[bus.route])))
         n = sum(self.rng.uniform() < demand_pct for _ in range(bus.passengers))
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
@@ -128,6 +136,7 @@ class Trial:
         bus.time += t
         bus.state = 'wait'
         return event
+
 
 def simulate(experiment, rng=None):
     """Convenience method to create a new trial object and call
