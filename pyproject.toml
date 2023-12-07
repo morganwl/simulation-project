@@ -7,6 +7,7 @@ name = "freebus"
 version = "0.1.2"
 dependencies = [
     'numpy',
+    'pyyaml'
 ]
 
 [project.scripts]

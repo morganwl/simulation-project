@@ -54,15 +54,19 @@ class Defaults:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description=__name__)
-    parser.add_argument('--numtrials', '-n', help='number of discrete trials to run',
-            type=int, default=Defaults.numtrials)
-    parser.add_argument('--experiment', '-x', help='predefined experiment profile to use',
-            default=Defaults.experiment, type=Defaults.experiments.get)
-    parser.add_argument('--output', '-o', help='file to append results to',
-            default=Defaults.output)
+    parser.add_argument('--numtrials', '-n',
+                        help='number of discrete trials to run',
+                        type=int, default=Defaults.numtrials)
+    parser.add_argument('--experiment', '-x',
+                        help='predefined experiment profile to use',
+                        default=Defaults.experiment,
+                        type=Defaults.experiments.get)
+    parser.add_argument('--output', '-o',
+                        help='file to append results to',
+                        default=Defaults.output)
     parser.add_argument('--batchsize', '-b',
-            help='number of trials to perform in a single batch',
-            default=Defaults.batchsize)
+                        help='number of trials to perform in a single batch',
+                        default=Defaults.batchsize)
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
 
@@ -72,7 +76,7 @@ def measure(events, headers):
     buses = defaultdict(int)
     stops = {}
     handlers = [rv_handlers[h] for h in headers]
-    rv = {h:0 for h in headers}
+    rv = {h: 0 for h in headers}
     for e in events:
         busid = (e.route, e.busid)
         buses[busid] += e.passengers

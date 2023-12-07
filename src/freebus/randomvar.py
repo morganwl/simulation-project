@@ -2,6 +2,7 @@
 
 import numpy as np
 
+
 class Fixed:
     """A fixed variable returns the same value for any number of
     inputs."""
@@ -21,10 +22,11 @@ class Fixed:
 
     def distribute_time(self, n, t):
         """Returns the sum of arrival times, given n arrivals over time t."""
-        return sum(i * t/n for i in range(1, n+1))
+        return sum(i * t/(n+1) for i in range(1, n+1))
 
     def __repr__(self):
         return f'{type(self).__name__}({self.val})'
+
 
 class FixedAlternating:
     """Returns alternating fixed values."""
@@ -34,7 +36,9 @@ class FixedAlternating:
 
     def __call__(self, *args, scale=1, n=None):
         if n is not None:
-            return np.fromiter((self(*args) for _ in range(n)), dtype=np.float64)
+            return np.fromiter(
+                (self(*args) for _ in range(n)),
+                dtype=np.float64)
         values = self.val[tuple(args[:self.dim])]
         self.val[tuple(args[:self.dim])] = np.roll(values, 1)
         return values[-1]
@@ -49,6 +53,7 @@ class FixedAlternating:
 
     def __repr__(self):
         return f'{type(self).__name__}({np.array_str(self.val)})'.replace('\n', '')
+
 
 class Pois:
     """Returns a poisson random variable."""

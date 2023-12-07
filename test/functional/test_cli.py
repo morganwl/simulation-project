@@ -21,3 +21,7 @@ def test_appends_csv(monkeypatch, tmpdir):
         csv_reader = csv.reader(csv_file)
         rows = list(csv_reader)
     assert len(rows) == 11
+
+
+def test_from_config_file(monkeypatch, tmpdir):
+    """Tests that an experiment can be loaded from a configuration file."""

@@ -96,6 +96,7 @@ class Trial:
                                            bus.time, scale=delta)
         t = (self.experiment.demand_loading.distribute_time(n, delta)
              + delta * stop.waiting)
+        self.stops[bus.route][bus.stop].last_load = bus.time
         stop.waiting += n
         if n > 0:
             bus.state = 'load'
@@ -115,7 +116,6 @@ class Trial:
         self.stops[bus.route][bus.stop].waiting -= n
         event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
         bus.time += t
-        self.stops[bus.route][bus.stop].last_load = bus.time
         bus.state = 'wait'
         return event
 

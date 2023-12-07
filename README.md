@@ -34,9 +34,11 @@ Our overall model makes the following assumptions and simplifications:
     - [X] test
     - [X] feature
 - [ ] 0.2.0 features
-  - [ ] non-deterministic trials
+  - [X] non-deterministic trials
+  - [X] test bus leapfrog events
   - [ ] input parameters via YAML
   - [ ] single line with multiple stops
+  - [ ] scheduled departure time and intermediate stops
   - [ ] calculate and report benchmarks
     - [ ] events processed
     - [ ] runtime per trial

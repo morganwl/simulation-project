@@ -25,14 +25,17 @@ def two_stop():
                  'holding-time', 'total-passengers']
     )
 
+
 def test_two_stop():
     """The two-stop experiment should have an average of 1 passenger a
     day. The loading time does not lend itself to simple analysis."""
     experiment = two_stop()
     results = fb.main.simulate_batch(experiment, 1000)
     means = np.mean(results, axis=0)
-    assert means[3] == pytest.approx(1, rel=0.1)
-    assert means[1] == pytest.approx(3, rel=0.1)
+    means = dict(zip(experiment.headers, means))
+    assert means['total-passengers'] == pytest.approx(1, rel=0.1)
+    assert means['moving-time'] == pytest.approx(3, rel=0.1)
+
 
 def wait_and_load(experiment, route, stop, t):
     """Return a load event after generating a wait event."""
@@ -40,6 +43,7 @@ def wait_and_load(experiment, route, stop, t):
     bus = Bus(route, stop, t)
     trial.generate_event_wait(bus)
     return trial.generate_event_load(bus)
+
 
 def test_fixed_loading():
     """A fixed loading time should yield a consistent duration for loading events."""
@@ -71,9 +75,11 @@ def test_empty_loading():
             for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(0, rel=0.01)
 
+
 def test_last_stop_unloading():
     """All passengers should unload at the last stop."""
     experiment = two_stop()
+
     def unload_last_stop(experiment):
         bus = Bus(0, 0, 1)
         bus.stop, bus.time, bus.passengers = 1, 4, 1
@@ -83,11 +89,53 @@ def test_last_stop_unloading():
                 (unload_last_stop(experiment) for _ in range(1000)),
                 dtype=np.float64)) == -1
 
+
 def test_measure_unload():
     """Tests that a list of load and unload events are measured correctly."""
     experiment = two_stop()
     events = [
             Event(1, .01, 'load', 0, 0, 1, 1),
             Event(4.01, 1, 'unload', 0, 1, 1, -1)]
-    measurement = fb.main.measure(events, experiment.headers)
-    assert measurement.tolist() == [0.01, 0, 0, 1]
+    measurement = dict(
+        zip(experiment.headers, fb.main.measure(events, experiment.headers)))
+    assert measurement['loading-time'] == 0.01
+    assert measurement['total-passengers'] == 1
+
+
+def test_leapfrog_fixed(deterministic_experiment):
+    """Tests that a bus which arrives while another bus is loading
+    passengers will load the next available passengers."""
+    deterministic_experiment.schedule = [[10, 10.5]]
+    results = dict(
+        zip(deterministic_experiment.headers,
+            fb.main.simulate_batch(deterministic_experiment, 1)[0]))
+    assert results['waiting-time'] == 5.25
+    assert results['loading-time'] == 3
+    assert results['total-passengers'] == 2
+
+
+def test_leapfrog_fixed_events(deterministic_experiment):
+    """Tests that a bus which arrives while another bus is loading
+    passengers will load the next available passengers."""
+    deterministic_experiment.schedule = [[10, 10.5]]
+    trial = Trial(deterministic_experiment)
+    events = trial.simulate()
+    print(events)
+    assert events == [
+        Event(10, 0, 'unload', 0, 0, 10, 0),
+        Event(10, 5, 'wait', 0, 0, 10, 0, 1),
+        Event(10, 1, 'load', 0, 0, 10, 1),
+        Event(10.5, 0, 'unload', 0, 0, 10.5, 0),
+        Event(10.5, 0, 'wait', 0, 0, 10.5, 0),
+        Event(10.5, 3, 'depart', 0, 0, 10.5, 0),
+        Event(11, .25, 'wait', 0, 0, 10, 0, 1),
+        Event(11, 1, 'load', 0, 0, 10, 1),
+        Event(12, 0, 'wait', 0, 0, 10, 0),
+        Event(12, 3, 'depart', 0, 0, 10, 0),
+        Event(13.5, 0, 'unload', 0, 1, 10.5, 0),
+        Event(13.5, 0, 'wait', 0, 1, 10.5, 0),
+        Event(13.5, 0, 'depart', 0, 1, 10.5, 0),
+        Event(15, 2, 'unload', 0, 1, 10, -2),
+        Event(17, 0, 'wait', 0, 1, 10, 0),
+        Event(17, 0, 'depart', 0, 1, 10, 0),
+    ]
