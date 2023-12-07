@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 fbsimulate = 'freebus:main.cli_entry'
+fbtabulate = 'freebus:results.cli_entry'
 
 [tool.pytest.ini_options]
 addopts = [

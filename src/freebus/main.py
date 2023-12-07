@@ -47,7 +47,29 @@ class Defaults:
             schedule=[[1]],
             headers=['waiting-time', 'loading-time', 'moving-time',
                      'holding-time', 'total-passengers']
-        )
+        ),
+        'ten-stop': Experiment(
+            routes=[10],
+            distance=[[1] * 10],
+            traffic=Fixed(1),
+            demand_loading=Pois([[1] * 9 + [0]]),
+            demand_unloading=Pois([[0] + [1] * 9]),
+            time_loading=Fixed(.1),
+            time_unloading=Fixed(.05),
+            schedule=[[5, 10, 15, 20, 30]],
+            headers=['waiting-time', 'loading-time', 'moving-time',
+                     'holding-time', 'total-passengers']),
+        'ten-stop-long': Experiment(
+            routes=[10],
+            distance=[[1] * 10],
+            traffic=Fixed(1),
+            demand_loading=Pois([[1] * 9 + [0]]),
+            demand_unloading=Pois([[0] + [1] * 9]),
+            time_loading=Fixed(.2),
+            time_unloading=Fixed(.05),
+            schedule=[[5, 10, 15, 20, 30]],
+            headers=['waiting-time', 'loading-time', 'moving-time',
+                     'holding-time', 'total-passengers']),
     }
 
 
@@ -82,6 +104,9 @@ def measure(events, headers):
         buses[busid] += e.passengers
         for h in handlers:
             h(e, rv, buses, stops)
+    for h in rv:
+        if h != 'total-passengers' and rv['total-passengers'] > 0:
+            rv[h] /= rv['total-passengers']
     return np.fromiter((rv[h] for h in headers), dtype=np.float64,
                        count=len(headers))
 
@@ -167,7 +192,7 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
         update_params_cache(experiment, params_cache)
     print(f'{"var":6s}', end='')
     for h in experiment.headers:
-        print(f'{h:>18s}', end='')
+        print(f'{h:>20s}', end='')
     print()
     trials = np.empty((numtrials, len(experiment.headers)), dtype=np.float64)
     i = 0
@@ -182,13 +207,13 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
         intervals = confidence_interval(trials[:i], rng)
         print(f'{"mean":6s}', end='')
         for m, ci in zip(means, intervals):
-            print(f'{m:6.3f} ({ci[0]:4.2f},{ci[1]:4.2f})', end='')
+            print(f'{m:8.2f} (+/-{ci[1]-ci[0]:6.2f})', end='')
         print(end='\r')
     var = np.var(trials[:i], axis=0)
     print()
     print(f'{"var":6s}', end='')
     for v in var:
-        print(f'{v:18f}', end='')
+        print(f'{v:20.3f}', end='')
     print()
 
 

@@ -36,6 +36,8 @@ Our overall model makes the following assumptions and simplifications:
 - [ ] 0.2.0 features
   - [X] non-deterministic trials
   - [X] test bus leapfrog events
+  - [X] print results as distribution
+    - very rudimentary
   - [ ] input parameters via YAML
   - [ ] single line with multiple stops
   - [ ] scheduled departure time and intermediate stops

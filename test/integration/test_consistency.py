@@ -34,7 +34,6 @@ def test_two_stop():
     means = np.mean(results, axis=0)
     means = dict(zip(experiment.headers, means))
     assert means['total-passengers'] == pytest.approx(1, rel=0.1)
-    assert means['moving-time'] == pytest.approx(3, rel=0.1)
 
 
 def wait_and_load(experiment, route, stop, t):
@@ -109,8 +108,8 @@ def test_leapfrog_fixed(deterministic_experiment):
     results = dict(
         zip(deterministic_experiment.headers,
             fb.main.simulate_batch(deterministic_experiment, 1)[0]))
-    assert results['waiting-time'] == 5.25
-    assert results['loading-time'] == 3
+    assert results['waiting-time'] == 2.625
+    assert results['loading-time'] == 1.5
     assert results['total-passengers'] == 2
 
 

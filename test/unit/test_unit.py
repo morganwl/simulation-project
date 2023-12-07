@@ -88,9 +88,9 @@ def test_measure_two_passengers(deterministic_experiment):
     """Tests that measure takes a list of events and returns a single
     set of random variables."""
     # note that all times are summed over ALL passengers
-    expected_waiting = 7.5
-    expected_loading = 4
-    expected_moving = 8
+    expected_waiting = 3.75
+    expected_loading = 2
+    expected_moving = 4
     expected_holding = 0
     expected_passengers = 2
     expected = np.array([
