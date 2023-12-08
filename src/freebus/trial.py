@@ -110,7 +110,7 @@ class Trial:
     def generate_event_load(self, bus):
         """Generate a load event."""
         n = self.stops[bus.route][bus.stop].waiting
-        t = sum(self.experiment.time_loading(bus.passengers - i)
+        t = sum(self.experiment.time_loading(bus.passengers + i)
                 for i in range(n))
         bus.passengers += n
         self.stops[bus.route][bus.stop].waiting -= n

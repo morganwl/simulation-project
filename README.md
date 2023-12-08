@@ -38,7 +38,7 @@ Our overall model makes the following assumptions and simplifications:
   - [X] test bus leapfrog events
   - [X] print results as distribution
     - very rudimentary
-  - [ ] input parameters via YAML
+  - [X] PERT distribution
   - [ ] single line with multiple stops
   - [ ] scheduled departure time and intermediate stops
   - [ ] calculate and report benchmarks
@@ -49,3 +49,4 @@ Our overall model makes the following assumptions and simplifications:
 - [ ] 0.3.0 features
   - [ ] multiple lines
   - [ ] transfers
+  - [ ] input parameters via YAML

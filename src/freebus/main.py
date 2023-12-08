@@ -9,7 +9,7 @@ import numpy as np
 
 from .trial import simulate
 from .experiments import Experiment
-from .randomvar import Fixed, FixedAlternating, Pois
+from .randomvar import Fixed, FixedAlternating, Pois, Pert
 
 SPEED = 20/60
 
@@ -54,7 +54,7 @@ class Defaults:
             traffic=Fixed(1),
             demand_loading=Pois([[1] * 9 + [0]]),
             demand_unloading=Pois([[0] + [1] * 9]),
-            time_loading=Fixed(.1),
+            time_loading=Pert(1/60, 8/60, 120/60),
             time_unloading=Fixed(.05),
             schedule=[[5, 10, 15, 20, 30]],
             headers=['waiting-time', 'loading-time', 'moving-time',
@@ -65,7 +65,7 @@ class Defaults:
             traffic=Fixed(1),
             demand_loading=Pois([[1] * 9 + [0]]),
             demand_unloading=Pois([[0] + [1] * 9]),
-            time_loading=Fixed(.2),
+            time_loading=Pert(3/60, 15/60, 120/60),
             time_unloading=Fixed(.05),
             schedule=[[5, 10, 15, 20, 30]],
             headers=['waiting-time', 'loading-time', 'moving-time',
