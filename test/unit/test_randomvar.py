@@ -3,7 +3,8 @@
 import pytest
 import numpy as np
 
-from freebus.randomvar import Fixed, FixedAlternating, Pois, Pert, TimeVarPois
+from freebus.randomvar import Fixed, FixedAlternating, Pois, Pert,\
+    TimeVarPois, IndicatorKernel
 
 
 def test_fixed_rv():
@@ -114,13 +115,27 @@ def test_time_var_poisson_rv_single_step_func():
 def test_time_var_poisson_rv_continuous_time_func():
     """A TimeVarPois with a continuous time function should yield a
     sum/integral over the given timescale."""
-    def InterpolatedLinear(t, scale=1, step=.1):
+    def interpolated_linear(t, scale=1, step=.1):
         """Simple linear kernel function."""
         num = int(scale / step)
         return step * np.linspace(t-scale, t, endpoint=True, num=num)
-    rv = TimeVarPois([4, 8], InterpolatedLinear)
+    rv = TimeVarPois([4, 8], interpolated_linear)
     assert np.mean(rv(0, 1, scale=0, n=10000)) == pytest.approx(0, rel=0.1)
     assert np.mean(rv(0, 1, scale=1, n=10000)) == pytest.approx(2, rel=0.1)
     assert np.var(rv(0, 1, scale=1, n=10000)) == pytest.approx(2, rel=0.1)
     assert np.mean(rv(0, 4, scale=2, n=10000)) == pytest.approx(24, rel=0.1)
     assert np.var(rv(0, 4, scale=2, n=10000)) == pytest.approx(24, rel=0.1)
+
+
+def test_indicator_kernel():
+    """An indicator kernel should return some fixed non-zero number
+    between two bounds, and zero outside of those bounds, such that the
+    sum across the entire space is equal to a given volume."""
+    kernel = IndicatorKernel(volume=1, lower=1, upper=2)
+    assert np.sum(kernel(1, scale=1)) == pytest.approx(0)
+    assert np.sum(kernel(1.5, scale=1)) == pytest.approx(.5)
+    print(kernel(2, scale=1))
+    print(kernel(2, scale=1).shape)
+    assert np.sum(kernel(2, scale=1)) == pytest.approx(1)
+    assert np.sum(kernel(3, scale=3)) == pytest.approx(1)
+    assert np.sum(kernel(2.75, scale=1, step=.05)) == pytest.approx(.25)

@@ -9,7 +9,7 @@ import numpy as np
 
 from .trial import simulate
 from .experiments import Experiment
-from .randomvar import Fixed, FixedAlternating, Pois, Pert
+from .randomvar import Fixed, FixedAlternating, Pois, Pert, TimeVarPois, IndicatorKernel
 
 SPEED = 20/60
 
@@ -52,7 +52,8 @@ class Defaults:
             routes=[10],
             distance=[[1] * 10],
             traffic=Fixed(1),
-            demand_loading=Pois([[1] * 9 + [0]]),
+            demand_loading=TimeVarPois([[1] * 9 + [0]],
+                                       IndicatorKernel(1, 0, 120)),
             demand_unloading=Pois([[0] + [1] * 9]),
             time_loading=Pert(1/60, 8/60, 120/60),
             time_unloading=Fixed(.05),
@@ -63,7 +64,8 @@ class Defaults:
             routes=[10],
             distance=[[1] * 10],
             traffic=Fixed(1),
-            demand_loading=Pois([[1] * 9 + [0]]),
+            demand_loading=TimeVarPois([[1] * 9 + [0]],
+                                       IndicatorKernel(1, 0, 120)),
             demand_unloading=Pois([[0] + [1] * 9]),
             time_loading=Pert(3/60, 15/60, 120/60),
             time_unloading=Fixed(.05),
