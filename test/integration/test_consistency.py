@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from freebus.types import Event
-from freebus.experiments import Experiment
+from freebus.experiments import Experiment, Routes
 from freebus.randomvar import Fixed, Pois
 from freebus.trial import Trial, Bus
 import freebus as fb
@@ -13,11 +13,12 @@ import freebus as fb
 def two_stop():
     """Returns a simple two-stop system."""
     return Experiment(
-        routes=[2],
-        distance=[[1, 0]],
-        traffic=Fixed(1),
-        demand_loading=Pois([[1, 0]]),
-        demand_unloading=Pois([[0, 1]]),
+        Routes(
+            routes=[2],
+            distance=[[1, 0]],
+            traffic=Fixed(1),
+            demand_loading=Pois([[1, 0]]),
+            demand_unloading=Pois([[0, 1]]),),
         time_loading=Fixed(.01),
         time_unloading=Fixed(.1),
         schedule=[[1]],
@@ -54,10 +55,10 @@ def test_fixed_loading():
     print(event)
     assert event.dur == 0.01 * event.passengers
     trials = np.fromiter((wait_and_load(experiment, 0, 0, 1).passengers
-            for _ in range(1000)), dtype=np.float64)
+                          for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(1, rel=0.1)
     trials = np.fromiter((wait_and_load(experiment, 0, 0, 1).dur
-            for _ in range(1000)), dtype=np.float64)
+                          for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(.01, rel=0.1)
 
 def test_empty_loading():
@@ -66,12 +67,12 @@ def test_empty_loading():
     bus = Bus(0, 1, 4)
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).passengers
-            for _ in range(1000)), dtype=np.float64)
+                          for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(0, rel=0.1)
     bus = Bus(0, 1, 4)
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).dur
-            for _ in range(1000)), dtype=np.float64)
+                          for _ in range(1000)), dtype=np.float64)
     assert np.mean(trials) == pytest.approx(0, rel=0.01)
 
 
@@ -84,17 +85,17 @@ def test_last_stop_unloading():
         bus.stop, bus.time, bus.passengers = 1, 4, 1
         return Trial(experiment).generate_event_unload(bus).passengers
     assert np.mean(
-            np.fromiter(
-                (unload_last_stop(experiment) for _ in range(1000)),
-                dtype=np.float64)) == -1
+        np.fromiter(
+            (unload_last_stop(experiment) for _ in range(1000)),
+            dtype=np.float64)) == -1
 
 
 def test_measure_unload():
     """Tests that a list of load and unload events are measured correctly."""
     experiment = two_stop()
     events = [
-            Event(1, .01, 'load', 0, 0, 1, 1),
-            Event(4.01, 1, 'unload', 0, 1, 1, -1)]
+        Event(1, .01, 'load', 0, 0, 1, 1),
+        Event(4.01, 1, 'unload', 0, 1, 1, -1)]
     measurement = dict(
         zip(experiment.headers, fb.main.measure(events, experiment.headers)))
     assert measurement['loading-time'] == 0.01

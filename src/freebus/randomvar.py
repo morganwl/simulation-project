@@ -206,7 +206,9 @@ class IndicatorKernel:
         self.lower = lower
         self.upper = upper
 
-    def __call__(self, t, scale=1, step=.1):
+    def __call__(self, t, scale=1, step=.01):
+        if scale == 0:
+            return np.array([])
         num = int(np.ceil(scale / step))
         step = scale / num
         segments = np.linspace(t - scale, t, endpoint=False, num=num)

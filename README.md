@@ -39,7 +39,8 @@ Our overall model makes the following assumptions and simplifications:
   - [X] print results as distribution
     - very rudimentary
   - [X] PERT distribution
-  - [ ] single line with multiple stops
+  - [X] single line with multiple stops
+    - need a servicable time function
   - [ ] scheduled departure time and intermediate stops
   - [ ] calculate and report benchmarks
     - [ ] events processed

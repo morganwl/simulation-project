@@ -94,7 +94,7 @@ class Trial:
         delta = bus.time - stop.last_load
         n = self.experiment.demand_loading(bus.route, bus.stop,
                                            bus.time, scale=delta)
-        t = (self.experiment.demand_loading.distribute_time(n, delta)
+        t = (self.experiment.demand_loading.sum_arrivals(n, delta)
              + delta * stop.waiting)
         self.stops[bus.route][bus.stop].last_load = bus.time
         stop.waiting += n

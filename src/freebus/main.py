@@ -8,8 +8,7 @@ import os
 import numpy as np
 
 from .trial import simulate
-from .experiments import Experiment
-from .randomvar import Fixed, FixedAlternating, Pois, Pert, TimeVarPois, IndicatorKernel
+from .experiments import Experiment, get_builtin_experiments
 
 SPEED = 20/60
 
@@ -23,56 +22,7 @@ class Defaults:
     experiment = 'two-stop'
     output = os.path.join('results', '{checksum}.csv')
     params_cache = os.path.join('results', 'params_cache.txt')
-    experiments = {
-        'simple': Experiment(
-            routes=[2],
-            distance=[[1, 0]],
-            traffic=Fixed(1),
-            demand_loading=FixedAlternating([[[1, 0], [0, 0]]]),
-            demand_unloading=Fixed([[0, 1]]),
-            time_loading=Fixed(1),
-            time_unloading=Fixed(1),
-            schedule=[[10]],
-            headers=['waiting-time', 'loading-time', 'moving-time',
-                     'holding-time', 'total-passengers']
-        ),
-        'two-stop': Experiment(
-            routes=[2],
-            distance=[[1, 0]],
-            traffic=Fixed(1),
-            demand_loading=Pois([[1, 0]]),
-            demand_unloading=Pois([[0, 1]]),
-            time_loading=Fixed(.01),
-            time_unloading=Fixed(.1),
-            schedule=[[1]],
-            headers=['waiting-time', 'loading-time', 'moving-time',
-                     'holding-time', 'total-passengers']
-        ),
-        'ten-stop': Experiment(
-            routes=[10],
-            distance=[[1] * 10],
-            traffic=Fixed(1),
-            demand_loading=TimeVarPois([[1] * 9 + [0]],
-                                       IndicatorKernel(1, 0, 120)),
-            demand_unloading=Pois([[0] + [1] * 9]),
-            time_loading=Pert(1/60, 8/60, 120/60),
-            time_unloading=Fixed(.05),
-            schedule=[[5, 10, 15, 20, 30]],
-            headers=['waiting-time', 'loading-time', 'moving-time',
-                     'holding-time', 'total-passengers']),
-        'ten-stop-long': Experiment(
-            routes=[10],
-            distance=[[1] * 10],
-            traffic=Fixed(1),
-            demand_loading=TimeVarPois([[1] * 9 + [0]],
-                                       IndicatorKernel(1, 0, 120)),
-            demand_unloading=Pois([[0] + [1] * 9]),
-            time_loading=Pert(3/60, 15/60, 120/60),
-            time_unloading=Fixed(.05),
-            schedule=[[5, 10, 15, 20, 30]],
-            headers=['waiting-time', 'loading-time', 'moving-time',
-                     'holding-time', 'total-passengers']),
-    }
+    experiments = get_builtin_experiments()
 
 
 def parse_args() -> argparse.Namespace:
