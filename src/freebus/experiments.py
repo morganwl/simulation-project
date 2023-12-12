@@ -3,6 +3,9 @@
 from dataclasses import dataclass
 from zlib import crc32
 
+import numpy as np
+from scipy.special import beta, gamma
+
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, IndicatorKernel
 

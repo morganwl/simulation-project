@@ -4,6 +4,8 @@ from warnings import warn
 import inspect
 
 import numpy as np
+import scipy
+from scipy.special import beta, gamma
 
 
 def auto_repr(cls):
@@ -219,3 +221,57 @@ class IndicatorKernel:
                         ', '.join(f'{key}={getattr(self, key)}'
                                   for key in ['volume', 'lower', 'upper']),
                         ')'])
+
+
+@auto_repr
+class SumOfFunctionKernel:
+    """A kernel that returns the sum of a list of arbitrary functions
+    over time t."""
+    def __init__(self, funcs: list):
+        self.funcs = funcs
+
+    def __call__(self, t, scale=1, step=0.1):
+        if scale == 0:
+            return np.array([])
+        num = int(np.ceil(scale / step))
+        step = scale / num
+        segments = np.linspace(t - scale, t, endpoint=True, num=num)
+        return step * sum(f(segments) for f in self.funcs)
+
+
+@auto_repr
+class SumOfDistributionKernel:
+    """A kernel that returns the sum of of a list of cumulative
+    distribution functions over time t."""
+    def __init__(self, funcs: list):
+        self.funcs = funcs
+
+    def __call__(self, t, scale=1):
+        return sum(f(t) - f(t - scale) for f in self.funcs)
+
+
+# pylint: disable=too-few-public-methods
+@auto_repr
+class GammaTimeFunc:
+    """A time function based on a gamma distribution."""
+    def __init__(self, k, theta, area=1):
+        self.k = k
+        self.theta = theta
+        self.area = area
+        self._c = area / (gamma(k) * theta ** k) / 60
+
+    def __call__(self, x):
+        return scipy.stats.gamma.cdf(x, self.k, self.theta) * self.area
+
+
+@auto_repr
+class BetaTimeFunc:
+    """A time function based on a beta distribution."""
+    def __init__(self, a, b, area=1):
+        self.a = a
+        self.b = b
+        self.area = area
+        self._c = area
+
+    def __call__(self, x):
+        return scipy.stats.beta.cdf(x, self.a, self.b) * self.area
