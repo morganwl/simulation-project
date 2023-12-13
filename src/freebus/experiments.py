@@ -5,9 +5,11 @@ from zlib import crc32
 
 import numpy as np
 from scipy.special import beta, gamma
+import scipy.stats
 
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
-    TimeVarPois, IndicatorKernel
+    TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
+    IndicatorKernel
 
 
 class Headers:
@@ -43,6 +45,85 @@ class Schedule:
     schedule: list[list[float]]
 
 
+@dataclass
+class Node:
+    """A binary traffic node."""
+    time: float
+    val: float
+    left: 'Node' = None
+    right: 'Node' = None
+
+
+class TrafficModel:
+    """Models traffic volume with consistency."""
+    def __init__(self, mean):
+        self.mean = mean
+        self.time_func = lambda x: scipy.stats.beta.pdf(
+            x % (60*24) / 60 / 24, 5, 3)
+        self.rand_func = lambda x: np.random.beta(4, 4) * x
+        self.time_trees = {}
+
+    def __call__(self, route, stop, t):
+        earlier, later = self.find_neighbors(route, stop, t)
+        weight = 0
+        val = 0
+        if earlier:
+            w = .5 * .9**(t - earlier.time)
+            weight += w
+            val += w * earlier.val
+        if later:
+            w = .5 * .9**(later.time - t)
+            weight += w
+            val += w * later.val
+        val += (1 - weight) * self.rand_func(self.time_func(t))
+        self.insert(route, stop, t, val)
+        return min(1 - (val / 3), 0.05)
+
+    def find_neighbors(self, route, stop, t):
+        """Find the two closest nodes to time t. If t is already in the
+        tree, these are both t."""
+        earlier = None
+        later = None
+        node = self.time_trees.get((route, stop))
+        while node is not None:
+            if node.time == t:
+                return node, node
+            if node.time < t:
+                earlier = node
+                node = node.right
+            else:
+                later = node
+                node = node.left
+        return earlier, later
+
+    def insert(self, route, stop, t, val):
+        """Inserts a node in the time tree."""
+        node = self.time_trees.get((route, stop))
+        while node is not None:
+            if node.time == t:
+                return
+            if node.time > t:
+                if node.left is None:
+                    node.left = Node(t, val)
+                    return
+                node = node.left
+            else:
+                if node.right is None:
+                    node.right = Node(t, val)
+                    return
+                node = node.right
+        self.time_trees[(route, stop)] = Node(t, val)
+
+    def reset(self):
+        self.time_trees = {}
+
+    def fix(self, route, stop, t, val):
+        self.insert(route, stop, t, val)
+
+    def __repr__(self):
+        return f'{type(self).__name__}()'
+
+
 class Experiment:
     """Object containing experimental parameters."""
     def __init__(self,
@@ -50,14 +131,7 @@ class Experiment:
                  time_loading, time_unloading,
                  schedule,
                  headers):
-    # def __init__(self, routes, distance, traffic, demand_loading,
-    #              demand_unloading, time_loading, time_unloading,
-    #              schedule, headers):
         self._routes = routes
-        # self.distance = distance
-        # self.traffic = traffic
-        # self.demand_loading = demand_loading
-        # self.demand_unloading = demand_unloading
         self.time_loading = time_loading
         self.time_unloading = time_unloading
         self.schedule = schedule
@@ -126,10 +200,13 @@ def get_builtin_routes():
         'b35': Routes(
             routes=[48],
             distance=[[.2]*48],
-            traffic=Fixed(.75),
-            demand_loading=TimeVarPois([[.07] * 47 + [0]],
-                                       IndicatorKernel(1, 0, 120)),
-            demand_unloading=Pois(([[0] + [.07] * 47])),
+            traffic=TrafficModel(Fixed(.5)),
+            demand_loading=TimeVarPois([[117] * 47 + [0]],
+                                       SumOfDistributionKernel([
+                                           BetaTimeFunc(5, 2.917, area=0.5),
+                                           GammaTimeFunc(9, 7/9, area=0.5),
+                                       ])),
+            demand_unloading=Pois(([[0] + [117] * 47])),
         ),
     }
 
@@ -168,7 +245,27 @@ def get_builtin_experiments():
         ),
         'b35-short': Experiment(
             routes=routes['b35'],
-            time_loading=Pert(1/60, 8/60, 120/60),
+            time_loading=Pert(1/60, 8/60, 120/60, lamb=3),
+            time_unloading=Fixed(.05),
+            schedule=[
+                [30, 80, 130, 180, 225, 265, 295, 318, 339, 355, 375,
+                 382, 389, 396, 403, 411, 418, 426, 433, 441, 448, 456,
+                 463, 471, 478, 486, 493, 501, 509, 517, 526, 538, 550,
+                 562, 574, 586, 598, 610, 622, 634, 646, 658, 670, 682,
+                 694, 706, 718, 730, 742, 754, 764, 774, 784, 794, 804,
+                 814, 824, 834, 844, 854, 864, 874, 881, 889, 896, 904,
+                 911, 919, 926, 934, 942, 950, 958, 966, 974, 982, 990,
+                 998, 1006, 1014, 1022, 1029, 1037, 1044, 1051, 1058,
+                 1065, 1072, 1079, 1086, 1094, 1103, 1112, 1121, 1130,
+                 1139, 1148, 1157, 1166, 1175, 1185, 1197, 1209, 1221,
+                 1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
+                 1355, 1367, 1379, 1392, 1405, 1420, 1436]
+            ],
+            headers=Headers.SIMPLE,
+        ),
+        'b35-long': Experiment(
+            routes=routes['b35'],
+            time_loading=Pert(3/60, 15/60, 120/60, lamb=3),
             time_unloading=Fixed(.05),
             schedule=[
                 [30, 80, 130, 180, 225, 265, 295, 318, 339, 355, 375,
