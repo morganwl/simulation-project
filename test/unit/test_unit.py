@@ -44,9 +44,9 @@ def test_simulate_deterministic_experiment(deterministic_experiment):
             Event(10, 0, 'unload', 0, 0, 10, 0),
             Event(10, 5, 'wait', 0, 0, 10, 0, 1),
             Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'wait', 0, 0, 10, 0),
-            Event(11, 3, 'depart', 0, 0, 10, 0),
-            Event(14, 1, 'unload', 0, 1, 10, -1),
+            Event(11, 0, 'wait', 0, 0, 10, 1),
+            Event(11, 3, 'depart', 0, 0, 10, 1),
+            Event(14, 1, 'unload', 0, 1, 10, 0),
             Event(15, 0, 'wait', 0, 1, 10, 0),
             Event(15, 0, 'depart', 0, 1, 10, 0),
             ]
@@ -75,9 +75,9 @@ def test_measure_one_passenger(deterministic_experiment):
             Event(10, 0, 'unload', 0, 0, 10, 0),
             Event(10, 5, 'wait', 0, 0, 10, 0, 1),
             Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'wait', 0, 0, 10, 0),
-            Event(12, 4, 'depart', 0, 0, 10, 0),
-            Event(16, 1, 'unload', 0, 1, 10, -1),
+            Event(11, 0, 'wait', 0, 0, 10, 1),
+            Event(12, 4, 'depart', 0, 0, 10, 1),
+            Event(16, 1, 'unload', 0, 1, 10, 0),
             Event(17, 0, 'wait', 0, 1, 10, 0),
             Event(17, 0, 'depart', 0, 1, 10, 0)]
     result = fb.main.measure(events, deterministic_experiment.headers)
@@ -100,9 +100,9 @@ def test_measure_two_passengers(deterministic_experiment):
             Event(10, 0, 'unload', 0, 0, 10, 0),
             Event(10, 3.75, 'wait', 0, 0, 10, 0, 2),
             Event(10, 2, 'load', 0, 0, 10, 2),
-            Event(12, 0, 'load', 0, 0, 10, 0),
-            Event(12, 4, 'depart', 0, 0, 10, 0),
-            Event(16, 2, 'unload', 0, 1, 10, -2),
+            Event(12, 0, 'load', 0, 0, 10, 2),
+            Event(12, 4, 'depart', 0, 0, 10, 2),
+            Event(16, 2, 'unload', 0, 1, 10, 0),
             Event(18, 0, 'wait', 0, 1, 10, 0),
             Event(18, 0, 'depart', 0, 1, 10, 0)]
     result = fb.main.measure(events, deterministic_experiment.headers)

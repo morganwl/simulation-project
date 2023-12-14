@@ -79,7 +79,7 @@ class Trial:
         """Generate a depart event."""
         t = (self.experiment.distance[bus.route][bus.stop] / SPEED
              / self.experiment.traffic(bus.route, bus.stop, bus.time))
-        event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, 0)
+        event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, bus.passengers)
         bus.time += t
         bus.stop += 1
         if bus.stop < self.experiment.routes[bus.route]:
@@ -96,7 +96,7 @@ class Trial:
                                            bus.time, scale=delta)
         t = (self.experiment.demand_loading.sum_arrivals(n, delta)
              + delta * stop.waiting)
-        self.stops[bus.route][bus.stop].last_load = bus.time
+        stop.last_load = bus.time
         stop.waiting += n
         if n > 0:
             bus.state = 'load'
@@ -105,7 +105,7 @@ class Trial:
         if stop.waiting:
             t /= stop.waiting
         return Event(bus.time, t, 'wait', bus.route, bus.stop, bus.id,
-                     0, stop.waiting)
+                     bus.passengers, stop.waiting)
 
     def generate_event_load(self, bus):
         """Generate a load event."""
@@ -114,7 +114,8 @@ class Trial:
                 for i in range(n))
         bus.passengers += n
         self.stops[bus.route][bus.stop].waiting -= n
-        event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id, n)
+        event = Event(bus.time, t, 'load', bus.route, bus.stop, bus.id,
+                      bus.passengers)
         bus.time += t
         bus.state = 'wait'
         return event
@@ -132,7 +133,8 @@ class Trial:
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
         bus.passengers -= n
-        event = Event(bus.time, t, 'unload', bus.route, bus.stop, bus.id, -n)
+        event = Event(bus.time, t, 'unload', bus.route, bus.stop,
+                      bus.id, bus.passengers)
         bus.time += t
         bus.state = 'wait'
         return event

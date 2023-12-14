@@ -8,7 +8,7 @@ import os
 import numpy as np
 
 from .trial import simulate
-from .experiments import Experiment, get_builtin_experiments
+from .experiments import Experiment, get_builtin_experiments, Headers
 
 SPEED = 20/60
 
@@ -47,58 +47,100 @@ def parse_args() -> argparse.Namespace:
 
 def measure(events, headers):
     """Returns an array of variables, measured from a list of events."""
-    buses = defaultdict(int)
-    stops = {}
-    handlers = [rv_handlers[h] for h in headers]
-    rv = {h: 0 for h in headers}
-    for e in events:
-        busid = (e.route, e.busid)
-        buses[busid] += e.passengers
-        for h in handlers:
-            h(e, rv, buses, stops)
-    for h in rv:
-        if h != 'total-passengers' and rv['total-passengers'] > 0:
-            rv[h] /= rv['total-passengers']
+    rv = {}
+    total_passengers = max(measure_passengers(events),
+                           np.finfo(np.float64).tiny)
+    for h in headers:
+        if h == 'total-passengers':
+            rv[h] = total_passengers
+            continue
+        rv[h] = rv_handlers[h](events, total_passengers)
     return np.fromiter((rv[h] for h in headers), dtype=np.float64,
                        count=len(headers))
 
 
-def measure_waiting(event, rv, *_):
-    """Updates the measurement of waiting rv based on an event."""
-    rv['waiting-time'] += event.waiting * event.dur
+def measure_bus_load_median(events, _):
+    return np.quantile(np.array([e.passengers for e in events
+                                 if e.etype == 'depart']),
+                       .5)
 
 
-def measure_loading(event, rv, buses, _):
-    """Updates the measurement of loading rv based on an event."""
-    if event.etype in ['load', 'unload']:
-        rv['loading-time'] += buses[(event.route, event.busid)] * event.dur
+def measure_bus_load_extreme(events, _):
+    return np.quantile(np.array([e.passengers for e in events
+                                 if e.etype == 'depart']),
+                       .99)
 
 
-def measure_moving(event, rv, buses, _):
+def measure_last_event(events, _):
+    """Measures the time of the last event in the experiment."""
+    return max(e.time for e in events)
+
+
+def measure_waiting(events, passengers):
+    """Measures the mean waiting time."""
+    return sum(e.waiting * e.dur for e in events) / passengers
+
+
+def measure_loading(events, passengers):
+    """Returns the mean loading and unloading time per passenger."""
+    return (sum(e.passengers * e.dur for e in events
+                if e.etype in ['load', 'unload'])
+            / passengers)
+
+
+def measure_moving(events, passengers):
     """Updates the measurement of moving rv based on an event."""
-    if event.etype == 'depart':
-        rv['moving-time'] += buses[(event.route, event.busid)] * event.dur
+    return sum(e.passengers * e.dur for e in events
+               if e.etype == 'depart') / passengers
 
 
-def measure_holding(event, rv, buses, _):
+def measure_holding(events, passengers):
     """Measures the time spent holding."""
-    if event.etype == 'hold':
-        rv['holding-time'] += buses[(event.route, event.busid)] * event.dur
+    return sum(e.passengers * e.dur for e in events
+               if e.etype == 'hold') / passengers
 
 
-def measure_passengers(event, rv, *_):
+def measure_passengers(events):
     """Measures the number of passengers."""
-    if event.etype == 'load':
-        rv['total-passengers'] += event.passengers
+    passengers = 0
+    buses = defaultdict(int)
+    for e in events:
+        if e.etype == 'load':
+            passengers += e.passengers - buses[(e.route, e.busid)]
+            buses[(e.route, e.busid)] = e.passengers
+        if e.etype == 'unload':
+            buses[(e.route, e.busid)] = e.passengers
+    return passengers
 
 
-rv_handlers = {
-    'waiting-time': measure_waiting,
-    'loading-time': measure_loading,
-    'moving-time': measure_moving,
-    'holding-time': measure_holding,
-    'total-passengers': measure_passengers,
-}
+def measure_pass_range(events, start, stop):
+    """Measures the number of passengers within a particular time
+    range."""
+    passengers = 0
+    buses = {}
+    for e in events:
+        if e.etype == 'load' and start <= e.time < stop:
+            passengers += e.passengers - buses[e.route, e.busid].passengers
+        buses[e.route, e.busid] = e
+    return passengers
+
+
+rv_handlers = (
+    {
+        'waiting-time': measure_waiting,
+        'loading-time': measure_loading,
+        'moving-time': measure_moving,
+        'holding-time': measure_holding,
+        'total-passengers': measure_passengers,
+        'last-event': measure_last_event,
+        'median-load': measure_bus_load_median,
+        'extreme-load': measure_bus_load_extreme,
+    }
+    |
+    {f'passengers-{i}': (lambda x, _, i=i: measure_pass_range(x, 60 * i,
+                                                              60 * (i + 1)))
+     for i in range(24)}
+)
 
 
 def simulate_batch(experiment, batch_size):
@@ -143,8 +185,8 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
     if params_cache is not None:
         update_params_cache(experiment, params_cache)
     print(f'{"var":6s}', end='')
-    for h in experiment.headers:
-        print(f'{h:>20s}', end='')
+    for h in experiment.headers[:5]:
+        print(f'{h:>18s}', end='')
     print()
     trials = np.empty((numtrials, len(experiment.headers)), dtype=np.float64)
     i = 0
@@ -158,14 +200,14 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
         means = np.mean(trials[:i], axis=0)
         intervals = confidence_interval(trials[:i], rng)
         print(f'{"mean":6s}', end='')
-        for m, ci in zip(means, intervals):
-            print(f'{m:8.2f} (+/-{ci[1]-ci[0]:6.2f})', end='')
+        for m, ci in zip(means, intervals[:5]):
+            print(f'{m:9.1f} +/-{ci[1]-ci[0]:5.1f}', end='')
         print(end='\r')
     var = np.var(trials[:i], axis=0)
     print()
     print(f'{"var":6s}', end='')
-    for v in var:
-        print(f'{v:20.3f}', end='')
+    for v in var[:5]:
+        print(f'{v:18.3f}', end='')
     print()
 
 

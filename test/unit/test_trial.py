@@ -8,30 +8,32 @@ from freebus.trial import Trial, simulate, Bus
 
 def test_simulate(deterministic_experiment):
     """Tests that a simple simulation returns a list of events."""
+    events = simulate(deterministic_experiment)
     expected = [
             Event(10, 0, 'unload', 0, 0, 10, 0),
             Event(10, 5., 'wait', 0, 0, 10, 0, 1),
             Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'wait', 0, 0, 10, 0),
-            Event(11, 3., 'depart', 0, 0, 10, 0),
-            Event(14., 1, 'unload', 0, 1, 10, -1),
+            Event(11, 0, 'wait', 0, 0, 10, 1),
+            Event(11, 3., 'depart', 0, 0, 10, 1),
+            Event(14., 1, 'unload', 0, 1, 10, 0),
             Event(15., 0., 'wait', 0, 1, 10, 0, 0),
             Event(15., 0., 'depart', 0, 1, 10, 0)]
-    events = simulate(deterministic_experiment)
     assert events == expected
+
 
 def test_generate_event_unload(deterministic_experiment):
     """Tests that an unload event with simple parameters returns an
     event with appropriate results."""
-    expected = Event(15, 5, 'unload', 0, 1, 10, -5)
     bus = Bus(0, 0, 10)
     bus.time = 15
     bus.stop = 1
     bus.passengers = 5
     trial = Trial(deterministic_experiment)
     event = trial.generate_event(bus)
+    expected = Event(15, 5, 'unload', 0, 1, 10, 0)
     assert event == expected
     assert bus.state == 'wait'
+
 
 def test_generate_event_wait(deterministic_experiment):
     """Tests that a wait event with simple parameters returns an event
@@ -45,6 +47,7 @@ def test_generate_event_wait(deterministic_experiment):
     assert event == expected
     assert bus.state == 'load'
 
+
 def test_generate_event_load(deterministic_experiment):
     """Tests that an load event with simple parameters returns an
     event with appropriate results."""
@@ -57,8 +60,10 @@ def test_generate_event_load(deterministic_experiment):
     assert event == expected
     assert bus.state == 'wait'
 
+
 def test_generate_event_depart_last(deterministic_experiment):
-    """Tests that an apart event will set a bus to inactive at the last stop."""
+    """Tests that a depart event will set a bus to inactive at the last
+    stop."""
     expected = Event(16, 0, 'depart', 0, 1, 10, 0)
     bus = Bus(0, 0, 10)
     bus.state = 'depart'

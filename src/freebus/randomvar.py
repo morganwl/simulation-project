@@ -159,6 +159,8 @@ class TimeVarPois(RandomVar):
             return mean * time_scale
 
     def __call__(self, *args, scale=1, n=None):
+        if scale == 0:
+            return 0
         args, t = args[:-1], args[-1]
         mean = self.mean[tuple(args[:self._dim])]
         try:
@@ -274,4 +276,4 @@ class BetaTimeFunc:
         self._c = area
 
     def __call__(self, x):
-        return scipy.stats.beta.cdf(x, self.a, self.b) * self.area
+        return scipy.stats.beta.cdf(x / 24 / 60, self.a, self.b) * self.area

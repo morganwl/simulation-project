@@ -19,6 +19,8 @@ class Headers:
     trial."""
     SIMPLE = ('waiting-time', 'loading-time', 'moving-time',
               'holding-time', 'total-passengers')
+    EXTENDED = SIMPLE + (('last-event', 'median-load', 'extreme-load',)
+                         + tuple(f'passengers-{i}' for i in range(24)))
 
 
 @dataclass
@@ -77,7 +79,7 @@ class TrafficModel:
             val += w * later.val
         val += (1 - weight) * self.rand_func(self.time_func(t))
         self.insert(route, stop, t, val)
-        return min(1 - (val / 3), 0.05)
+        return max(1 - (val / 3), 0.01)
 
     def find_neighbors(self, route, stop, t):
         """Find the two closest nodes to time t. If t is already in the
@@ -203,8 +205,8 @@ def get_builtin_routes():
             traffic=TrafficModel(Fixed(.5)),
             demand_loading=TimeVarPois([[117] * 47 + [0]],
                                        SumOfDistributionKernel([
-                                           BetaTimeFunc(5, 2.917, area=0.5),
-                                           GammaTimeFunc(9, 7/9, area=0.5),
+                                           BetaTimeFunc(4, 2, area=0.5),
+                                           BetaTimeFunc(6, 14, area=0.5)
                                        ])),
             demand_unloading=Pois(([[0] + [117] * 47])),
         ),
@@ -261,7 +263,7 @@ def get_builtin_experiments():
                  1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
                  1355, 1367, 1379, 1392, 1405, 1420, 1436]
             ],
-            headers=Headers.SIMPLE,
+            headers=Headers.EXTENDED,
         ),
         'b35-long': Experiment(
             routes=routes['b35'],
@@ -281,6 +283,6 @@ def get_builtin_experiments():
                  1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
                  1355, 1367, 1379, 1392, 1405, 1420, 1436]
             ],
-            headers=Headers.SIMPLE,
+            headers=Headers.EXTENDED,
         ),
     }

@@ -68,7 +68,7 @@ def test_empty_loading():
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).passengers
                           for _ in range(1000)), dtype=np.float64)
-    assert np.mean(trials) == pytest.approx(0, rel=0.1)
+    assert np.mean(trials) == pytest.approx(1, rel=0.1)
     bus = Bus(0, 1, 4)
     bus.passengers = 1
     trials = np.fromiter((Trial(experiment).generate_event_load(bus).dur
@@ -87,7 +87,7 @@ def test_last_stop_unloading():
     assert np.mean(
         np.fromiter(
             (unload_last_stop(experiment) for _ in range(1000)),
-            dtype=np.float64)) == -1
+            dtype=np.float64)) == 0
 
 
 def test_measure_unload():
@@ -95,7 +95,7 @@ def test_measure_unload():
     experiment = two_stop()
     events = [
         Event(1, .01, 'load', 0, 0, 1, 1),
-        Event(4.01, 1, 'unload', 0, 1, 1, -1)]
+        Event(4.01, 1, 'unload', 0, 1, 1, 0)]
     measurement = dict(
         zip(experiment.headers, fb.main.measure(events, experiment.headers)))
     assert measurement['loading-time'] == 0.01
@@ -128,14 +128,14 @@ def test_leapfrog_fixed_events(deterministic_experiment):
         Event(10.5, 0, 'unload', 0, 0, 10.5, 0),
         Event(10.5, 0, 'wait', 0, 0, 10.5, 0),
         Event(10.5, 3, 'depart', 0, 0, 10.5, 0),
-        Event(11, .25, 'wait', 0, 0, 10, 0, 1),
-        Event(11, 1, 'load', 0, 0, 10, 1),
-        Event(12, 0, 'wait', 0, 0, 10, 0),
-        Event(12, 3, 'depart', 0, 0, 10, 0),
+        Event(11, .25, 'wait', 0, 0, 10, 1, 1),
+        Event(11, 1, 'load', 0, 0, 10, 2),
+        Event(12, 0, 'wait', 0, 0, 10, 2),
+        Event(12, 3, 'depart', 0, 0, 10, 2),
         Event(13.5, 0, 'unload', 0, 1, 10.5, 0),
         Event(13.5, 0, 'wait', 0, 1, 10.5, 0),
         Event(13.5, 0, 'depart', 0, 1, 10.5, 0),
-        Event(15, 2, 'unload', 0, 1, 10, -2),
+        Event(15, 2, 'unload', 0, 1, 10, 0),
         Event(17, 0, 'wait', 0, 1, 10, 0),
         Event(17, 0, 'depart', 0, 1, 10, 0),
     ]

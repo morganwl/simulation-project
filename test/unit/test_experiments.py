@@ -113,9 +113,9 @@ def test_traffic_model_smooth():
     """Results should be affected by earlier queries to nearby
     parameters."""
     traffic = TrafficModel(Fixed(.5))
-    r0, s0, t0 = 0, 1, 5
-    r1, s1, t1 = 0, 1, 6
-    r2, s2, t2 = 0, 1, 10
+    r0, s0, t0 = 0, 1, 250
+    r1, s1, t1 = 0, 1, 260
+    r2, s2, t2 = 0, 1, 265
     shape = 100
     random_results = np.zeros(shape)
     close_results = np.zeros(shape)
