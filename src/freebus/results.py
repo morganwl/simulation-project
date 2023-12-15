@@ -30,7 +30,7 @@ def plot_travel_time(dataset, cols, name, ax):
     confidence = confidence_interval(np.array([travel_time]).transpose())[0]
     confidence = confidence[1] - confidence[0]
     ax.hist(travel_time, density=True)
-    ax.title.set_text(f'{name}\n{confidence:.3f}')
+    ax.title.set_text(f'{name}\n+/-{confidence:.3f} out of {len(travel_time)}')
 
 
 def plot_pph(dataset, cols, name, ax):

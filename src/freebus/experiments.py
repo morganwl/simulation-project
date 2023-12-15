@@ -9,7 +9,7 @@ import scipy.stats
 
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
-    IndicatorKernel
+    IndicatorKernel, auto_repr
 
 
 class Headers:
@@ -306,6 +306,13 @@ def get_builtin_experiments():
     }
 
 
-def capacity_scale(t, passengers):
-    """Increases t past a certain threshold of passengers."""
-    return t * min(1, 1.1**(passengers - 20))
+@auto_repr
+class CapacityScale:
+    def __init__(self):
+        pass
+
+    def __call__(self, t, passengers):
+        return t * min(1, 1.1**(passengers - 20))
+
+
+capacity_scale = CapacityScale()

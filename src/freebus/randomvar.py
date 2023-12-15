@@ -138,7 +138,8 @@ class Pois(RandomVar):
         return sum(self._rng.uniform(0, t) for _ in range(n))
 
     def __repr__(self):
-        return f'{type(self).__name__}({np.array_str(self.mean)})'.replace('\n', '')
+        return (f'{type(self).__name__}('
+                f'{np.array_str(self.mean)})'.replace('\n', ''))
 
 
 @auto_repr
@@ -167,14 +168,12 @@ class TimeVarPois(RandomVar):
             mean = mean(*args[self._dim:])
         except TypeError:
             pass
-        time_coef = np.array(self.time_func(t, scale=scale))
-        if n is None:
-            size = time_coef.shape
-        else:
-            size = (n, 1) if not time_coef.shape else (n,) + (time_coef).shape
-        return np.sum(
-            self._rng.poisson(
-                time_coef * mean, size=size), axis=-1)
+        time_coef = self.time_func(t, scale=scale)
+        # if n is None:
+        #     size = time_coef.shape
+        # else:
+        #     size = (n, 1) if not time_coef.shape else (n,) + (time_coef).shape
+        return self._rng.poisson(time_coef * mean, size=n)
 
     def sum_arrivals(self, n, t):
         """Returns the sum of arrival times, given n arrivals over time t."""

@@ -33,7 +33,7 @@ Our overall model makes the following assumptions and simplifications:
   - [X] report simulation parameters
     - [X] test
     - [X] feature
-- [ ] 0.2.0 features
+- [-] 0.2.0 features
   - [X] non-deterministic trials
   - [X] test bus leapfrog events
   - [X] print results as distribution
@@ -41,13 +41,13 @@ Our overall model makes the following assumptions and simplifications:
   - [X] PERT distribution
   - [X] single line with multiple stops
     - need a servicable time function
-  - [ ] scheduled departure time and intermediate stops
-  - [ ] calculate and report benchmarks
-    - [ ] events processed
+  - [X] calculate and report benchmarks
+    - [X] events processed
     - [X] runtime per trial
-    - [ ] memory usage per trial
-    - [ ] rns used per trial
+    - [X] memory usage per trial (via memray)
+    - [-] rns used per trial
 - [ ] 0.3.0 features
   - [ ] multiple lines
   - [ ] transfers
+  - [ ] scheduled departure time and intermediate stops
   - [ ] input parameters via YAML

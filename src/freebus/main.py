@@ -18,9 +18,9 @@ class Defaults:
     """Default values."""
     # pylint: disable=too-few-public-methods
     # this is a static data object
-    numtrials = 1000
-    batchsize = 20
-    experiment = 'two-stop'
+    numtrials = 10
+    batchsize = 10
+    experiment = 'b35-short'
     output = os.path.join('results', '{name}_{checksum}.csv')
     params_cache = os.path.join('results', 'params_cache.txt')
     experiments = get_builtin_experiments()
