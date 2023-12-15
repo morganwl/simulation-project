@@ -82,9 +82,11 @@ def update_params_cache(experiment, params_cache):
         f.write('\n')
 
 
-def confidence_interval(trials, rng, confidence=.95):
+def confidence_interval(trials, rng=None, confidence=.95):
     """Returns a (min,max) confidence interval for each column in trials."""
     # NB: numpy percentile inputs percentage as n in [0,100].
+    if rng is None:
+        rng = np.random.default_rng()
     header = 100 * ((1 - confidence) / 2)
     means = np.empty((1000, trials.shape[1]), dtype=np.float64)
     for i in range(means.shape[0]):
