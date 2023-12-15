@@ -184,9 +184,10 @@ class TimeVarPois(RandomVar):
 @auto_repr
 class Pert(RandomVar):
     """Random variable matching the PERT distribution, generated with numpy."""
-    def __init__(self, a, b, c, lamb=4):
+    def __init__(self, a, b, c, lamb=4, scale=None):
         self.a, self.b, self.c = a, b, c
         self.lamb = lamb
+        self.scale = scale
         self._alpha = 1 + (lamb * (self.b - self.a) / (self.c - self.a))
         self._beta = 1 + (lamb * (self.c - self.b) / (self.c - self.a))
         self._rng = np.random.default_rng()
@@ -195,9 +196,12 @@ class Pert(RandomVar):
         """Returns the expected value for any given parameters."""
         return self.b
 
-    def __call__(self, *args, n=None):
-        return (self._rng.beta(self._alpha, self._beta, size=n)
+    def __call__(self, scale=1, n=None):
+        base = (self._rng.beta(self._alpha, self._beta, size=n)
                 * (self.c - self.a) + self.a)
+        if self.scale:
+            return self.scale(base, scale)
+        return base
 
 
 @auto_repr

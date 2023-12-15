@@ -89,6 +89,20 @@ def test_pert_rv():
     assert np.max(vals) == approx(c, rel=0.1)
 
 
+def test_scaled_pert_rv():
+    """Tests that a Pert variable can be created with a scaling function."""
+    a, b, c = 3/60, 15/60, 120/60
+
+    def scaling_func(x, y):
+        return x * y**2
+    rv = Pert(a, b, c, scale=scaling_func)
+    unscaled_vals = rv(n=100000)
+    scaled_vals = rv(scale=4, n=100000)
+    assert np.mean(unscaled_vals) == approx((a + 4*b + c) / 6, rel=0.1)
+    assert np.mean(scaled_vals) == approx(
+        scaling_func((a + 4*b + c) / 6, 4), rel=0.1)
+
+
 def test_time_var_poisson_rv_fixed_func():
     """A time variable Poisson should have its mean scaled according to
     some universal time function."""

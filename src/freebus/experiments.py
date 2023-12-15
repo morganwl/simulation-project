@@ -174,6 +174,21 @@ class Experiment:
             f'time_loading={self.time_loading})')
 
 
+def b35_schedule():
+    """Return the b35 schedule."""
+    return [[30, 80, 130, 180, 225, 265, 295, 318, 339, 355, 375, 382,
+             389, 396, 403, 411, 418, 426, 433, 441, 448, 456, 463, 471,
+             478, 486, 493, 501, 509, 517, 526, 538, 550, 562, 574, 586,
+             598, 610, 622, 634, 646, 658, 670, 682, 694, 706, 718, 730,
+             742, 754, 764, 774, 784, 794, 804, 814, 824, 834, 844, 854,
+             864, 874, 881, 889, 896, 904, 911, 919, 926, 934, 942, 950,
+             958, 966, 974, 982, 990, 998, 1006, 1014, 1022, 1029, 1037,
+             1044, 1051, 1058, 1065, 1072, 1079, 1086, 1094, 1103, 1112,
+             1121, 1130, 1139, 1148, 1157, 1166, 1175, 1185, 1197, 1209,
+             1221, 1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
+             1355, 1367, 1379, 1392, 1405, 1420, 1436]]
+
+
 def get_builtin_routes():
     """Returns a dictionary of built-in routes."""
     return {
@@ -209,6 +224,17 @@ def get_builtin_routes():
                                            BetaTimeFunc(6, 14, area=0.5)
                                        ])),
             demand_unloading=Pois(([[0] + [117] * 47])),
+        ),
+        'b35-busy': Routes(
+            routes=[48],
+            distance=[[.2]*48],
+            traffic=TrafficModel(Fixed(.5)),
+            demand_loading=TimeVarPois([[180] * 47 + [0]],
+                                       SumOfDistributionKernel([
+                                           BetaTimeFunc(4, 2, area=0.5),
+                                           BetaTimeFunc(6, 14, area=0.5)
+                                       ])),
+            demand_unloading=Pois(([[0] + [180] * 47])),
         ),
     }
 
@@ -247,42 +273,39 @@ def get_builtin_experiments():
         ),
         'b35-short': Experiment(
             routes=routes['b35'],
-            time_loading=Pert(1/60, 8/60, 120/60, lamb=3),
+            time_loading=Pert(1/60, 8/60, 120/60, lamb=3,
+                              scale=capacity_scale),
             time_unloading=Fixed(.05),
-            schedule=[
-                [30, 80, 130, 180, 225, 265, 295, 318, 339, 355, 375,
-                 382, 389, 396, 403, 411, 418, 426, 433, 441, 448, 456,
-                 463, 471, 478, 486, 493, 501, 509, 517, 526, 538, 550,
-                 562, 574, 586, 598, 610, 622, 634, 646, 658, 670, 682,
-                 694, 706, 718, 730, 742, 754, 764, 774, 784, 794, 804,
-                 814, 824, 834, 844, 854, 864, 874, 881, 889, 896, 904,
-                 911, 919, 926, 934, 942, 950, 958, 966, 974, 982, 990,
-                 998, 1006, 1014, 1022, 1029, 1037, 1044, 1051, 1058,
-                 1065, 1072, 1079, 1086, 1094, 1103, 1112, 1121, 1130,
-                 1139, 1148, 1157, 1166, 1175, 1185, 1197, 1209, 1221,
-                 1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
-                 1355, 1367, 1379, 1392, 1405, 1420, 1436]
-            ],
+            schedule=b35_schedule(),
             headers=Headers.EXTENDED,
         ),
         'b35-long': Experiment(
             routes=routes['b35'],
-            time_loading=Pert(3/60, 15/60, 120/60, lamb=3),
+            time_loading=Pert(3/60, 15/60, 120/60, lamb=3,
+                              scale=capacity_scale),
             time_unloading=Fixed(.05),
-            schedule=[
-                [30, 80, 130, 180, 225, 265, 295, 318, 339, 355, 375,
-                 382, 389, 396, 403, 411, 418, 426, 433, 441, 448, 456,
-                 463, 471, 478, 486, 493, 501, 509, 517, 526, 538, 550,
-                 562, 574, 586, 598, 610, 622, 634, 646, 658, 670, 682,
-                 694, 706, 718, 730, 742, 754, 764, 774, 784, 794, 804,
-                 814, 824, 834, 844, 854, 864, 874, 881, 889, 896, 904,
-                 911, 919, 926, 934, 942, 950, 958, 966, 974, 982, 990,
-                 998, 1006, 1014, 1022, 1029, 1037, 1044, 1051, 1058,
-                 1065, 1072, 1079, 1086, 1094, 1103, 1112, 1121, 1130,
-                 1139, 1148, 1157, 1166, 1175, 1185, 1197, 1209, 1221,
-                 1233, 1245, 1257, 1269, 1281, 1296, 1315, 1331, 1343,
-                 1355, 1367, 1379, 1392, 1405, 1420, 1436]
-            ],
+            schedule=b35_schedule(),
+            headers=Headers.EXTENDED,
+        ),
+        'b35-short-busy': Experiment(
+            routes=routes['b35-busy'],
+            time_loading=Pert(1/60, 8/60, 120/60, lamb=3,
+                              scale=capacity_scale),
+            time_unloading=Fixed(.05),
+            schedule=b35_schedule(),
+            headers=Headers.EXTENDED,
+        ),
+        'b35-long-busy': Experiment(
+            routes=routes['b35-busy'],
+            time_loading=Pert(3/60, 15/60, 120/60, lamb=3,
+                              scale=capacity_scale),
+            time_unloading=Fixed(.05),
+            schedule=b35_schedule(),
             headers=Headers.EXTENDED,
         ),
     }
+
+
+def capacity_scale(t, passengers):
+    """Increases t past a certain threshold of passengers."""
+    return t * min(1, 1.1**(passengers - 20))
