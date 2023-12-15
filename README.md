@@ -44,7 +44,7 @@ Our overall model makes the following assumptions and simplifications:
   - [ ] scheduled departure time and intermediate stops
   - [ ] calculate and report benchmarks
     - [ ] events processed
-    - [ ] runtime per trial
+    - [X] runtime per trial
     - [ ] memory usage per trial
     - [ ] rns used per trial
 - [ ] 0.3.0 features

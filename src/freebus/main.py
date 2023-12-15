@@ -8,7 +8,8 @@ import os
 import numpy as np
 
 from .trial import simulate
-from .experiments import Experiment, get_builtin_experiments, Headers
+from .experiments import get_builtin_experiments
+from .measure import measure
 
 SPEED = 20/60
 
@@ -20,7 +21,7 @@ class Defaults:
     numtrials = 1000
     batchsize = 20
     experiment = 'two-stop'
-    output = os.path.join('results', '{checksum}.csv')
+    output = os.path.join('results', '{name}_{checksum}.csv')
     params_cache = os.path.join('results', 'params_cache.txt')
     experiments = get_builtin_experiments()
 
@@ -34,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--experiment', '-x',
                         help='predefined experiment profile to use',
                         default=Defaults.experiment,
-                        type=Defaults.experiments.get)
+                        choices=Defaults.experiments)
     parser.add_argument('--output', '-o',
                         help='file to append results to',
                         default=Defaults.output)
@@ -43,104 +44,6 @@ def parse_args() -> argparse.Namespace:
                         default=Defaults.batchsize)
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
-
-
-def measure(events, headers):
-    """Returns an array of variables, measured from a list of events."""
-    rv = {}
-    total_passengers = max(measure_passengers(events),
-                           np.finfo(np.float64).tiny)
-    for h in headers:
-        if h == 'total-passengers':
-            rv[h] = total_passengers
-            continue
-        rv[h] = rv_handlers[h](events, total_passengers)
-    return np.fromiter((rv[h] for h in headers), dtype=np.float64,
-                       count=len(headers))
-
-
-def measure_bus_load_median(events, _):
-    return np.quantile(np.array([e.passengers for e in events
-                                 if e.etype == 'depart']),
-                       .5)
-
-
-def measure_bus_load_extreme(events, _):
-    return np.quantile(np.array([e.passengers for e in events
-                                 if e.etype == 'depart']),
-                       .99)
-
-
-def measure_last_event(events, _):
-    """Measures the time of the last event in the experiment."""
-    return max(e.time for e in events)
-
-
-def measure_waiting(events, passengers):
-    """Measures the mean waiting time."""
-    return sum(e.waiting * e.dur for e in events) / passengers
-
-
-def measure_loading(events, passengers):
-    """Returns the mean loading and unloading time per passenger."""
-    return (sum(e.passengers * e.dur for e in events
-                if e.etype in ['load', 'unload'])
-            / passengers)
-
-
-def measure_moving(events, passengers):
-    """Updates the measurement of moving rv based on an event."""
-    return sum(e.passengers * e.dur for e in events
-               if e.etype == 'depart') / passengers
-
-
-def measure_holding(events, passengers):
-    """Measures the time spent holding."""
-    return sum(e.passengers * e.dur for e in events
-               if e.etype == 'hold') / passengers
-
-
-def measure_passengers(events):
-    """Measures the number of passengers."""
-    passengers = 0
-    buses = defaultdict(int)
-    for e in events:
-        if e.etype == 'load':
-            passengers += e.passengers - buses[(e.route, e.busid)]
-            buses[(e.route, e.busid)] = e.passengers
-        if e.etype == 'unload':
-            buses[(e.route, e.busid)] = e.passengers
-    return passengers
-
-
-def measure_pass_range(events, start, stop):
-    """Measures the number of passengers within a particular time
-    range."""
-    passengers = 0
-    buses = {}
-    for e in events:
-        if e.etype == 'load' and start <= e.time < stop:
-            passengers += e.passengers - buses[e.route, e.busid].passengers
-        buses[e.route, e.busid] = e
-    return passengers
-
-
-rv_handlers = (
-    {
-        'waiting-time': measure_waiting,
-        'loading-time': measure_loading,
-        'moving-time': measure_moving,
-        'holding-time': measure_holding,
-        'total-passengers': measure_passengers,
-        'last-event': measure_last_event,
-        'median-load': measure_bus_load_median,
-        'extreme-load': measure_bus_load_extreme,
-    }
-    |
-    {f'passengers-{i}': (lambda x, _, i=i: measure_pass_range(x, 60 * i,
-                                                              60 * (i + 1)))
-     for i in range(24)}
-)
 
 
 def simulate_batch(experiment, batch_size):
@@ -179,6 +82,19 @@ def update_params_cache(experiment, params_cache):
         f.write('\n')
 
 
+def confidence_interval(trials, rng, confidence=.95):
+    """Returns a (min,max) confidence interval for each column in trials."""
+    # NB: numpy percentile inputs percentage as n in [0,100].
+    header = 100 * ((1 - confidence) / 2)
+    means = np.empty((1000, trials.shape[1]), dtype=np.float64)
+    for i in range(means.shape[0]):
+        means[i] = np.mean(rng.choice(trials, trials.shape[0]), axis=0)
+    intervals = np.column_stack([
+        np.percentile(means, header, axis=0),
+        np.percentile(means, 100-header, axis=0)])
+    return intervals
+
+
 def main(experiment, numtrials, output, batchsize=40, params_cache=None):
     """Performs trials and appends the results for each to an output csv."""
     rng = np.random.default_rng()
@@ -211,23 +127,11 @@ def main(experiment, numtrials, output, batchsize=40, params_cache=None):
     print()
 
 
-def confidence_interval(trials, rng, confidence=.95):
-    """Returns a (min,max) confidence interval for each column in trials."""
-    # NB: numpy percentile inputs percentage as n in [0,100].
-    header = 100 * ((1 - confidence) / 2)
-    means = np.empty((1000, trials.shape[1]), dtype=np.float64)
-    for i in range(means.shape[0]):
-        means[i] = np.mean(rng.choice(trials, trials.shape[0]), axis=0)
-    intervals = np.column_stack([
-        np.percentile(means, header, axis=0),
-        np.percentile(means, 100-header, axis=0)])
-    return intervals
-
-
 def cli_entry():
     """Entry point for command line script."""
     options = parse_args()
+    experiment = Defaults.experiments.get(options.experiment)
     options.output = options.output.format(
-        checksum=options.experiment.checksum())
-    main(options.experiment, options.numtrials, options.output,
+        name=options.experiment, checksum=experiment.checksum())
+    main(experiment, options.numtrials, options.output,
          batchsize=options.batchsize, params_cache=options.params_cache)

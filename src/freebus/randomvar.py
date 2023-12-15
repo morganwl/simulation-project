@@ -5,7 +5,7 @@ import inspect
 
 import numpy as np
 import scipy
-from scipy.special import beta, gamma
+from scipy.special import gamma
 
 
 def auto_repr(cls):
