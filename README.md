@@ -47,7 +47,15 @@ Our overall model makes the following assumptions and simplifications:
     - [X] memory usage per trial (via memray)
     - [-] rns used per trial
 - [ ] 0.3.0 features
-  - [ ] multiple lines
-  - [ ] transfers
+  - [X] multiple lines
+    - [ ] lines should have separate queues
+  - [X] transfers
+    - [ ] in large system
+    - [ ] properly switch between queues to handle transfers
+  - [ ] random daily scaling of traffic and passenger rates
+  - [ ] non-uniform rate for each stop
+  - [ ] find way to demonstrate cascading effect
+  - [ ] generate plot of the PERT distribution
   - [ ] scheduled departure time and intermediate stops
   - [ ] input parameters via YAML
+  - [ ] one more line

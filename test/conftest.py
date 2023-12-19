@@ -2,7 +2,7 @@
 
 import pytest
 
-from freebus.experiments import Experiment, Routes
+from freebus.experiments import Experiment, Routes, TrafficModel
 from freebus.randomvar import Fixed, FixedAlternating
 
 

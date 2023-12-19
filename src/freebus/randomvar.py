@@ -204,6 +204,20 @@ class Pert(RandomVar):
 
 
 @auto_repr
+class Gamma(RandomVar):
+    """Random variable matching the gamma distribution."""
+    def __init__(self, k, theta):
+        self.k, self.theta = k, theta
+        self._rng = np.random.default_rng()
+
+    def expected(self, *_):
+        return self.k * self.theta
+
+    def __call__(self, n=None):
+        return self._rng.gamma(self.k, self.theta, size=n)
+
+
+@auto_repr
 class IndicatorKernel:
     """An indicator kernel has a value of either x or 0, where the
     integral over the bounds is equal to volume."""
@@ -255,6 +269,16 @@ class SumOfDistributionKernel:
         return sum(f(t) - f(t - scale) for f in self.funcs)
 
 
+@auto_repr
+class SumOf:
+    """A callable sum of callable objects."""
+    def __init__(self, funcs: list):
+        self.funcs = funcs
+
+    def __call__(self, *args, **kwargs):
+        return sum(f(*args, **kwargs) for f in self.funcs)
+
+
 # pylint: disable=too-few-public-methods
 @auto_repr
 class GammaTimeFunc:
@@ -272,11 +296,24 @@ class GammaTimeFunc:
 @auto_repr
 class BetaTimeFunc:
     """A time function based on a beta distribution."""
-    def __init__(self, a, b, area=1):
+    def __init__(self, a, b, area=1, pdf=False):
         self.a = a
         self.b = b
         self.area = area
-        self._c = area
+        self.pdf = pdf
+        self._rv = scipy.stats.beta(a, b)
+        if pdf:
+            self.__call__ = self.pdf
 
-    def __call__(self, x):
-        return scipy.stats.beta.cdf(x / 24 / 60, self.a, self.b) * self.area
+    def scale_input(self, t):
+        """Scales an input in minutes to a fraction of a day in
+        [0,1]."""
+        t = t / 24 / 60
+        return t
+
+    def __call__(self, t):
+        return self._rv.cdf(self.scale_input(t)) * self.area
+
+    def pdf(self, t):
+        """Returns the probability density function at time t."""
+        return self._rv.pdf(self.scale_input(t)) * self.area

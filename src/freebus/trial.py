@@ -1,13 +1,14 @@
 """Generate the events for an individual trial."""
 
+from collections import deque
 from dataclasses import dataclass
-from heapq import heappush, heappop
+from heapq import heappush, heappop, heapreplace
 
 import numpy as np
 
 from .types import Event
 
-SPEED = 20/60
+SPEED = 12/60
 
 
 @dataclass
@@ -41,6 +42,7 @@ class Trial:
     """Object to manage state for a single trial."""
 
     def __init__(self, experiment, rng=None):
+        experiment.reset()
         self.experiment = experiment
         if rng is None:
             rng = np.random.default_rng()
@@ -67,6 +69,8 @@ class Trial:
         states."""
         if bus.state == 'unload':
             return self.generate_event_unload(bus)
+        if bus.state == 'transfer':
+            return self.generate_event_transfer(bus)
         if bus.state == 'wait':
             return self.generate_event_wait(bus)
         if bus.state == 'load':
@@ -77,9 +81,11 @@ class Trial:
 
     def generate_event_depart(self, bus):
         """Generate a depart event."""
-        t = (self.experiment.distance[bus.route][bus.stop] / SPEED
-             / self.experiment.traffic(bus.route, bus.stop, bus.time))
-        event = Event(bus.time, t, 'depart', bus.route, bus.stop, bus.id, bus.passengers)
+        t = (self.experiment.distance[bus.route][bus.stop]
+             / self.experiment.speed
+             * self.experiment.traffic(bus.route, bus.stop, bus.time))
+        event = Event(bus.time, t, 'depart', bus.route, bus.stop,
+                      bus.id, bus.passengers)
         bus.time += t
         bus.stop += 1
         if bus.stop < self.experiment.routes[bus.route]:
@@ -122,21 +128,57 @@ class Trial:
 
     def generate_event_unload(self, bus):
         """Generates an unload event."""
-        demand_pct = (
-            self.experiment.demand_unloading.expected(bus.route,
-                                                      bus.stop,
-                                                      bus.time)
-            / sum(self.experiment.demand_unloading.expected(bus.route,
-                                                            s, bus.time)
-                  for s in range(bus.stop, self.experiment.routes[bus.route])))
-        n = sum(self.rng.uniform() < demand_pct for _ in range(bus.passengers))
+        rate = self.experiment.demand_unloading.expected(bus.route,
+                                                         bus.stop,
+                                                         bus.time)
+        total_rate = sum(self.experiment.demand_unloading.expected(
+            bus.route, s, bus.time)
+                         for s in range(bus.stop,
+                                        self.experiment.routes[bus.route]))
+        if transfers := self.experiment.get_transfers(bus.route, bus.stop):
+            rate -= sum(t.rate for t in transfers)
+        rate_pct = rate / total_rate
+        n = sum(self.rng.uniform() < rate_pct for _ in range(bus.passengers))
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
         bus.passengers -= n
         event = Event(bus.time, t, 'unload', bus.route, bus.stop,
                       bus.id, bus.passengers)
         bus.time += t
-        bus.state = 'wait'
+        if transfers:
+            bus.state = 'transfer'
+            bus.transfers = deque(transfers)
+        else:
+            bus.state = 'wait'
+        return event
+
+    def generate_event_transfer(self, bus):
+        """Generates a transfer event."""
+        if getattr(bus, 'transfers', None) is None:
+            bus.transfers = deque(self.experiment.get_transfers(
+                bus.route, bus.stop))
+        transfer = bus.transfers.popleft()
+        rate_pct = transfer.rate / (sum(
+            self.experiment.demand_unloading.expected(bus.route, s, bus.time)
+            for s in range(bus.stop+1,
+                           self.experiment.routes[bus.route])) +
+                                    transfer.rate)
+        n = self.rng.binomial(bus.passengers, rate_pct)
+        if n:
+            t = (sum(self.experiment.time_unloading(bus.passengers - i)
+                     for i in range(n)) + transfer.waiting *
+                 (bus.time - transfer.last_time) / (transfer.waiting + n))
+        else:
+            t = 0
+        bus.passengers -= n
+        transfer.waiting += n
+        transfer.last_time = bus.time + t
+        event = Event(bus.time, t, 'transfer', bus.route, bus.stop,
+                      bus.id, bus.passengers, transfer.waiting)
+        bus.time += t
+        if not bus.transfers:
+            bus.transfers = None
+            bus.state = 'wait'
         return event
 
 

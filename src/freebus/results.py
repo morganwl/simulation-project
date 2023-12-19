@@ -35,8 +35,9 @@ def plot_travel_time(dataset, cols, name, ax):
 
 def plot_pph(dataset, cols, name, ax):
     """Plots passengers per hour from a single dataset."""
-    ax.bar(range(24), np.mean(dataset[:, [cols[f'passengers-{i}'] for i in range(24)]],
-           axis=0))
+    ax.bar(range(24), np.mean(dataset[:, [cols[f'passengers-{i}']
+                                          for i in range(24)]],
+                              axis=0))
     ax.title.set_text(f'{name}')
 
 
@@ -48,7 +49,7 @@ def plot_travel_times(datasets):
     fig.suptitle('Total Travel Time')
     for ((ds, cols, name), ax) in zip(datasets, subplots):
         plot_travel_time(ds, cols, name, ax)
-    plt.show()
+    plt.savefig(datasets[0][2] + 'travel.png')
 
 
 def plot_passengers_per_hour(datasets):
@@ -59,7 +60,7 @@ def plot_passengers_per_hour(datasets):
     fig.suptitle('Passengers per hour')
     for ((ds, cols, name), ax) in zip(datasets, subplots):
         plot_pph(ds, cols, name, ax)
-    plt.show()
+    plt.savefig(datasets[0][2] + 'pph.png')
 
 
 def main(sources):

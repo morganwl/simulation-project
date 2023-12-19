@@ -1,6 +1,6 @@
 """Experiment parameters."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from zlib import crc32
 
 import numpy as np
@@ -9,7 +9,7 @@ import scipy.stats
 
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
-    IndicatorKernel, auto_repr
+    IndicatorKernel, auto_repr, Gamma, SumOf
 
 
 class Headers:
@@ -24,6 +24,18 @@ class Headers:
 
 
 @dataclass
+class Transfer:
+    """Parameters for a transfer between two routes."""
+    fr_route: int
+    fr_stop: int
+    to_route: int
+    to_stop: int
+    rate: float
+    waiting: int = 0
+    last_time: float = 0
+
+
+@dataclass
 class Routes:
     """Parameters for external conditions for a predefined collection of
     bus-stops."""
@@ -32,6 +44,17 @@ class Routes:
     traffic: list[list[int]]
     demand_loading: RandomVar
     demand_unloading: RandomVar
+    transfers: list[Transfer] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.transfers = [Transfer(*t) for t in self.transfers]
+
+    def reset(self):
+        """Resets any per-trial parameters."""
+        try:
+            self.traffic.reset()
+        except AttributeError:
+            pass
 
 
 @dataclass
@@ -58,11 +81,16 @@ class Node:
 
 class TrafficModel:
     """Models traffic volume with consistency."""
-    def __init__(self, mean):
-        self.mean = mean
-        self.time_func = lambda x: scipy.stats.beta.pdf(
-            x % (60*24) / 60 / 24, 5, 3)
-        self.rand_func = lambda x: np.random.beta(4, 4) * x
+    def __init__(self, rand_scale, time_func=None):
+        self.rand_scale = rand_scale
+        if time_func is None:
+            time_func = lambda x: 0
+        self.time_func = time_func
+        # self.time_func = lambda x: (
+        #     1 +
+        #     0.5 * scipy.stats.beta.pdf(x % (60*24) / 60 / 24, 8, 5) +
+        #     0.5 * scipy.stats.beta.pdf(x % (60 * 24) / (60 / 24), 10, 15))
+        # self.rand_func = lambda x: x ** (np.random.gamma(4, .25))
         self.time_trees = {}
 
     def __call__(self, route, stop, t):
@@ -77,9 +105,9 @@ class TrafficModel:
             w = .5 * .9**(later.time - t)
             weight += w
             val += w * later.val
-        val += (1 - weight) * self.rand_func(self.time_func(t))
+        val += (1 - weight) * (1 + self.time_func(t)) ** self.rand_scale()
         self.insert(route, stop, t, val)
-        return max(1 - (val / 3), 0.01)
+        return val
 
     def find_neighbors(self, route, stop, t):
         """Find the two closest nodes to time t. If t is already in the
@@ -132,12 +160,14 @@ class Experiment:
                  routes,
                  time_loading, time_unloading,
                  schedule,
-                 headers):
+                 headers,
+                 speed=20/60):
         self._routes = routes
         self.time_loading = time_loading
         self.time_unloading = time_unloading
         self.schedule = schedule
         self.headers = headers
+        self.speed = speed
 
     def checksum(self):
         """Returns a crc32 checksum of the experimental parameters as a
@@ -163,6 +193,20 @@ class Experiment:
     @property
     def demand_unloading(self):
         return self._routes.demand_unloading
+
+    def get_transfers(self, route, stop):
+        """Returns a list of all transfers from route, stop."""
+        return [t for t in self._routes.transfers
+                if t.fr_route == route and t.fr_stop == stop]
+
+    def get_transfers_to(self, route, stop):
+        """Returns a list of all transfers to route, stop."""
+        return [t for t in self._routes.transfers
+                if t.to_route == route and t.to_stop == stop]
+
+    def reset(self):
+        """Resets any per-trial parameters."""
+        self._routes.reset()
 
     def __repr__(self):
         return (
@@ -216,23 +260,27 @@ def get_builtin_routes():
         ),
         'b35': Routes(
             routes=[48],
-            distance=[[.2]*48],
-            traffic=TrafficModel(Fixed(.5)),
+            distance=[[.2]*47 + [0]],
+            traffic=TrafficModel(Gamma(4, .25),
+                                 SumOf([BetaTimeFunc(8, 5, pdf=True),
+                                        BetaTimeFunc(10, 15, pdf=True)])),
             demand_loading=TimeVarPois([[117] * 47 + [0]],
                                        SumOfDistributionKernel([
+                                           BetaTimeFunc(6, 14, area=0.5),
                                            BetaTimeFunc(4, 2, area=0.5),
-                                           BetaTimeFunc(6, 14, area=0.5)
                                        ])),
             demand_unloading=Pois(([[0] + [117] * 47])),
         ),
         'b35-busy': Routes(
             routes=[48],
             distance=[[.2]*48],
-            traffic=TrafficModel(Fixed(.5)),
+            traffic=TrafficModel(Gamma(4, .25),
+                                 SumOf([BetaTimeFunc(8, 5, pdf=True),
+                                        BetaTimeFunc(10, 15, pdf=True)])),
             demand_loading=TimeVarPois([[180] * 47 + [0]],
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(4, 2, area=0.5),
-                                           BetaTimeFunc(6, 14, area=0.5)
+                                           BetaTimeFunc(6, 14, area=0.5),
                                        ])),
             demand_unloading=Pois(([[0] + [180] * 47])),
         ),
