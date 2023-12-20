@@ -189,6 +189,7 @@ class Pert(RandomVar):
         self.scale = scale
         self._alpha = 1 + (lamb * (self.b - self.a) / (self.c - self.a))
         self._beta = 1 + (lamb * (self.c - self.b) / (self.c - self.a))
+        self._rv = scipy.stats.beta(self._alpha, self._beta)
         self._rng = np.random.default_rng()
 
     def expected(self, *_):
@@ -196,8 +197,7 @@ class Pert(RandomVar):
         return self.b
 
     def __call__(self, scale=1, n=None):
-        base = (self._rng.beta(self._alpha, self._beta, size=n)
-                * (self.c - self.a) + self.a)
+        base = self._rv.rvs(size=n) * (self.c - self.a) + self.a
         if self.scale:
             return self.scale(base, scale)
         return base
