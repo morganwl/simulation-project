@@ -59,7 +59,7 @@ Our overall model makes the following assumptions and simplifications:
   - [ ] generate plot of the PERT distribution
   - [ ] collect events from each trial directly (compressed?)
   - [ ] plot traffic
-  - [ ] automatically detect current experiment hash and appropriate
+  - [X] automatically detect current experiment hash and appropriate
     results file
 - [ ] 0.5.0 submission-ready
   - [ ] rework traffic decay model

@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .main import Defaults, confidence_interval
+from .experiments import get_builtin_experiments
 
 COLS = 2
 
@@ -16,7 +17,7 @@ COLS = 2
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description=__name__)
-    parser.add_argument('input', nargs='+', type=Path)
+    parser.add_argument('input', nargs='+')
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     parser.add_argument('--name', '-n')
     parser.add_argument('--dir', '-d', type=Path,
@@ -36,7 +37,6 @@ class Output:
         """Output a figure using configured output method."""
         dsname = cls.name if cls.name else dataset
         name = f'{dsname}_{figname}.{cls.fmt}'
-        print(name)
         figure.tight_layout()
         figure.savefig(cls.output_dir / name)
         cls.generated_figures.append(name)
@@ -56,6 +56,18 @@ class Output:
         """Configure output based on a namespace object."""
         cls.output_dir = options.dir
         cls.name = options.name
+
+    @classmethod
+    def html_report(cls):
+        """Generates a simple html report."""
+        name = 'report' if cls.name is None else cls.name
+        with open(cls.output_dir / (name + '.html'), 'wt',
+                  encoding='utf8') as f:
+            f.write(f'<html><head><title>{name}</title></head>')
+            f.write('<body>\n')
+            for fig in cls.generated_figures:
+                f.write(f'<img src={fig}>\n')
+            f.write('</body></html>')
 
 
 def plot_travel_time(dataset, cols, name, ax):
@@ -101,17 +113,37 @@ def plot_passengers_per_hour(datasets):
     Output.figure(fig, datasets[0][2], 'pph')
 
 
+def expand_results(sources):
+    builtins = get_builtin_experiments()
+    for i, source in enumerate(sources):
+        source = str(source)
+        if source in builtins:
+            filename = f'{source}_{builtins[source].checksum()}.csv'
+            sources[i] = Path('results') / filename
+    return sources
+
+
+def expand_source(source):
+    builtins = get_builtin_experiments()
+    if source in builtins:
+        filename = f'{source}_{builtins[source].checksum()}.csv'
+        return Path('results') / filename
+    return Path(source)
+
+
 def main(sources):
     """Generate plots of results."""
     datasets = []
     for source in sources:
-        with open(source, encoding='utf8', newline='') as f:
+        filename = expand_source(source)
+        with open(filename, encoding='utf8', newline='') as f:
             reader = csv.reader(f)
             cols = {c: i for i, c in enumerate(next(reader))}
             data = np.loadtxt(f, delimiter=',')
-        datasets.append((data, cols, source.stem))
+        datasets.append((data, cols, source))
     plot_travel_times(datasets)
     plot_passengers_per_hour(datasets)
+    Output.html_report()
 
 
 def cli_entry():
