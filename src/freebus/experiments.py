@@ -17,6 +17,8 @@ class Headers:
               'holding-time', 'total-passengers')
     EXTENDED = SIMPLE + (('last-event', 'median-load', 'extreme-load',)
                          + tuple(f'passengers-{i}' for i in range(24)))
+    TRAFFIC = SIMPLE + EXTENDED + (('traffic-daily',) +
+                                   tuple(f'traffic-{i}' for i in range(24)))
 
 
 @dataclass
@@ -345,7 +347,7 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.EXTENDED,
+            headers=Headers.TRAFFIC,
         ),
         'b35-long': Experiment(
             routes=routes['b35'],
@@ -353,7 +355,7 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.EXTENDED,
+            headers=Headers.TRAFFIC,
         ),
         'b35-short-busy': Experiment(
             routes=routes['b35-busy'],
@@ -361,7 +363,7 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.EXTENDED,
+            headers=Headers.TRAFFIC,
         ),
         'b35-long-busy': Experiment(
             routes=routes['b35-busy'],
@@ -369,7 +371,7 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.EXTENDED,
+            headers=Headers.TRAFFIC,
         ),
     }
 

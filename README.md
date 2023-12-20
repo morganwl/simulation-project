@@ -58,7 +58,7 @@ Our overall model makes the following assumptions and simplifications:
   - [ ] find way to demonstrate cascading effect
   - [ ] generate plot of the PERT distribution
   - [ ] collect events from each trial directly (compressed?)
-  - [ ] plot traffic
+  - [X] plot traffic
   - [X] automatically detect current experiment hash and appropriate
     results file
 - [ ] 0.5.0 submission-ready

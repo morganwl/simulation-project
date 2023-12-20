@@ -113,6 +113,41 @@ def plot_passengers_per_hour(datasets):
     Output.figure(fig, datasets[0][2], 'pph')
 
 
+def plot_traffic_daily(datasets):
+    """Plot a histogram of daily traffic volume."""
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
+                                 squeeze=True, sharey=True, sharex=True)
+    fig.suptitle('Daily traffic volume')
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
+        plot_traffic(ds, cols, name, ax)
+    Output.figure(fig, datasets[0][2], 'traffic')
+
+
+def plot_traffic(dataset, cols, name, ax):
+    """Plots a histogram of daily traffic volume for one dataset."""
+    traffic = dataset[:, cols['traffic-daily']]
+    ax.hist(traffic, density=True)
+    ax.title.set_text(f'{name}')
+
+
+def plot_traffic_per_hour(datasets):
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
+                                 squeeze=True, sharey=True, sharex=True)
+    fig.suptitle('Traffic per hour')
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
+        plot_tph(ds, cols, name, ax)
+    Output.figure(fig, datasets[0][2], 'tph')
+
+
+def plot_tph(dataset, cols, name, ax):
+    """Plots average distribution of traffic per hour for one
+    dataset."""
+    ax.bar(range(24), np.mean(dataset[:, [cols[f'traffic-{i}']
+                                          for i in range(24)]],
+                              axis=0))
+    ax.title.set_text(f'{name}')
+
+
 def expand_results(sources):
     builtins = get_builtin_experiments()
     for i, source in enumerate(sources):
@@ -143,6 +178,8 @@ def main(sources):
         datasets.append((data, cols, source))
     plot_travel_times(datasets)
     plot_passengers_per_hour(datasets)
+    plot_traffic_daily(datasets)
+    plot_traffic_per_hour(datasets)
     Output.html_report()
 
 

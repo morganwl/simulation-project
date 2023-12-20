@@ -50,7 +50,8 @@ def simulate_batch(experiment, batch_size):
     """Returns an array of results for a batch of trials."""
     batch = np.empty((batch_size, len(experiment.headers)), dtype=np.float64)
     for i in range(batch_size):
-        batch[i] = measure(simulate(experiment), experiment.headers)
+        batch[i] = measure(simulate(experiment), experiment.headers,
+                           experiment.traffic)
     return batch
 
 
