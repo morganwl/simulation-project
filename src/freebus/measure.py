@@ -1,6 +1,7 @@
 """Generate measurements based on events."""
 
 from collections import defaultdict
+import statistics
 
 import numpy as np
 
@@ -86,6 +87,28 @@ def measure_pass_range(events, start, stop):
             passengers += e.passengers - buses[e.route, e.busid].passengers
         buses[e.route, e.busid] = e
     return passengers
+
+
+def measure_traffic_daily(traffic):
+    """
+    Measures the mean traffic, as experienced by buses.
+
+    A single point of traffic is used to calculate the travel time over
+    equally spaced trip segments. For this reason, it makes sense to
+    calculate the mean across unweighted points of traffic values.
+    """
+    return statistics.fmean(val for route, stop, time, val in traffic)
+
+
+def measure_traffic_range(traffic, start, stop):
+    """Measures the mean traffic over a particular range of times."""
+    total = 0
+    count = 0
+    for _, _, time, val in traffic:
+        if start <= time < stop:
+            total += val
+            count += 1
+    return total / max(count, 1)
 
 
 rv_handlers = (

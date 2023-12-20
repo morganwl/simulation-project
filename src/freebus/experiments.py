@@ -148,7 +148,23 @@ class TrafficModel:
             self._daily_scale = self.daily_func()
 
     def fix(self, route, stop, t, val):
+        """Insert a traffic point as a fixed value in the traffic
+        model."""
         self.insert(route, stop, t, val)
+
+    def __iter__(self):
+        for (route, stop), root in self.time_trees.items():
+            frontier = [(root, False)]
+            while frontier:
+                node, seen = frontier.pop()
+                if seen:
+                    yield (route, stop, node.time, node.val)
+                    if node.right:
+                        frontier.append((node.right, False))
+                else:
+                    frontier.append((node, True))
+                    if node.left:
+                        frontier.append((node.left, False))
 
     def __repr__(self):
         return f'{type(self).__name__}()'
