@@ -58,4 +58,4 @@ Our overall model makes the following assumptions and simplifications:
   - [ ] generate plot of the PERT distribution
   - [ ] scheduled departure time and intermediate stops
   - [ ] input parameters via YAML
-  - [ ] one more line
+  - [ ] one more bus line

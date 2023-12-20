@@ -204,6 +204,21 @@ class Pert(RandomVar):
 
 
 @auto_repr
+class Beta:
+    def __init__(self, a, b, bias=0):
+        self.a = a
+        self.b = b
+        self.bias = bias
+        self._rng = np.random.default_rng()
+
+    def expected(self, *_):
+        return self.a / (self.a + self.b) + self.bias
+
+    def __call__(self, n=None):
+        return self._rng.beta(self.a, self.b, size=n) + self.bias
+
+
+@auto_repr
 class Gamma(RandomVar):
     """Random variable matching the gamma distribution."""
     def __init__(self, k, theta):

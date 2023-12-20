@@ -9,7 +9,7 @@ import scipy.stats
 
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
-    IndicatorKernel, auto_repr, Gamma, SumOf
+    IndicatorKernel, auto_repr, Gamma, SumOf, Beta
 
 
 class Headers:
@@ -81,16 +81,16 @@ class Node:
 
 class TrafficModel:
     """Models traffic volume with consistency."""
-    def __init__(self, rand_scale, time_func=None):
+    def __init__(self, rand_scale, time_func=None,
+                 daily_func=None):
         self.rand_scale = rand_scale
         if time_func is None:
             time_func = lambda x: 0
         self.time_func = time_func
-        # self.time_func = lambda x: (
-        #     1 +
-        #     0.5 * scipy.stats.beta.pdf(x % (60*24) / 60 / 24, 8, 5) +
-        #     0.5 * scipy.stats.beta.pdf(x % (60 * 24) / (60 / 24), 10, 15))
-        # self.rand_func = lambda x: x ** (np.random.gamma(4, .25))
+        if daily_func is None:
+            daily_func = lambda: 1
+        self.daily_func = daily_func
+        self._daily_scale = daily_func()
         self.time_trees = {}
 
     def __call__(self, route, stop, t):
@@ -105,7 +105,9 @@ class TrafficModel:
             w = .5 * .9**(later.time - t)
             weight += w
             val += w * later.val
-        val += (1 - weight) * (1 + self.time_func(t)) ** self.rand_scale()
+        val += ((1 - weight) *
+                (1 + self.time_func(t))
+                 ** (self.rand_scale() * self._daily_scale))
         self.insert(route, stop, t, val)
         return val
 
@@ -145,7 +147,9 @@ class TrafficModel:
         self.time_trees[(route, stop)] = Node(t, val)
 
     def reset(self):
+        """Reset per-trial values in the traffic model."""
         self.time_trees = {}
+        self._daily_scale = self.daily_func()
 
     def fix(self, route, stop, t, val):
         self.insert(route, stop, t, val)
@@ -263,7 +267,8 @@ def get_builtin_routes():
             distance=[[.2]*47 + [0]],
             traffic=TrafficModel(Gamma(4, .25),
                                  SumOf([BetaTimeFunc(8, 5, pdf=True),
-                                        BetaTimeFunc(10, 15, pdf=True)])),
+                                        BetaTimeFunc(10, 15, pdf=True)]),
+                                 daily_func=Beta(6, 4, bias=.5)),
             demand_loading=TimeVarPois([[117] * 47 + [0]],
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(6, 14, area=0.5),
@@ -276,7 +281,8 @@ def get_builtin_routes():
             distance=[[.2]*48],
             traffic=TrafficModel(Gamma(4, .25),
                                  SumOf([BetaTimeFunc(8, 5, pdf=True),
-                                        BetaTimeFunc(10, 15, pdf=True)])),
+                                        BetaTimeFunc(10, 15, pdf=True)]),
+                                 daily_func=Beta(6, 4, bias=.5)),
             demand_loading=TimeVarPois([[180] * 47 + [0]],
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(4, 2, area=0.5),

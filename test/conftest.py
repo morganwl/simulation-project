@@ -22,3 +22,20 @@ def deterministic_experiment():
         headers=['waiting-time', 'loading-time', 'moving-time',
                  'holding-time', 'total-passengers']
     )
+
+
+@pytest.fixture
+def ReturnFrom():
+    """Return a callable type that sequentially returns elements from an
+    iterable."""
+    class ReturnFrom_:
+        """A function that returns elements from a list, in order."""
+        def __init__(self, returns: list):
+            self.returns = iter(returns)
+
+        def __call__(self, *_, **__):
+            try:
+                return next(self.returns)
+            except StopIteration:
+                return None
+    return ReturnFrom_
