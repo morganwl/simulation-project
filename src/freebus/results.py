@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import itertools
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -18,6 +19,22 @@ def parse_args():
     parser.add_argument('input', nargs='+', type=Path)
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
+
+
+class Output:
+    """Global state for outputting figures."""
+    output_dir = Path('figures')
+    generated_figures = []
+    fmt = 'png'
+    name = None
+
+    @classmethod
+    def figure(cls, figure, dataset, figname):
+        """Output a figure using configured output method."""
+        dsname = cls.name if cls.name else dataset
+        name = f'{dsname}_{figname}.{cls.fmt}'
+        figure.tight_layout()
+        figure.savefig(cls.output_dir / name)
 
 
 def plot_travel_time(dataset, cols, name, ax):
@@ -47,9 +64,9 @@ def plot_travel_times(datasets):
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
                                  squeeze=True, sharey=True, sharex=True)
     fig.suptitle('Total Travel Time')
-    for ((ds, cols, name), ax) in zip(datasets, subplots):
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_travel_time(ds, cols, name, ax)
-    plt.savefig(datasets[0][2] + 'travel.png')
+    Output.figure(fig, datasets[0][2], 'travel')
 
 
 def plot_passengers_per_hour(datasets):
@@ -58,9 +75,9 @@ def plot_passengers_per_hour(datasets):
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
                                  squeeze=True, sharey=True, sharex=True)
     fig.suptitle('Passengers per hour')
-    for ((ds, cols, name), ax) in zip(datasets, subplots):
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_pph(ds, cols, name, ax)
-    plt.savefig(datasets[0][2] + 'pph.png')
+    Output.figure(fig, datasets[0][2], 'pph')
 
 
 def main(sources):
