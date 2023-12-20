@@ -18,6 +18,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__name__)
     parser.add_argument('input', nargs='+', type=Path)
     parser.add_argument('--params_cache', default=Defaults.params_cache)
+    parser.add_argument('--name', '-n')
+    parser.add_argument('--dir', '-d', type=Path,
+                        default='figures')
     return parser.parse_args()
 
 
@@ -33,8 +36,26 @@ class Output:
         """Output a figure using configured output method."""
         dsname = cls.name if cls.name else dataset
         name = f'{dsname}_{figname}.{cls.fmt}'
+        print(name)
         figure.tight_layout()
         figure.savefig(cls.output_dir / name)
+        cls.generated_figures.append(name)
+
+    @classmethod
+    def set_output(cls, output):
+        """Set the output directory."""
+        cls.output_dir = Path(output)
+
+    @classmethod
+    def set_name(cls, name):
+        """Set the base name for generated figures."""
+        cls.name = name
+
+    @classmethod
+    def from_namespace(cls, options):
+        """Configure output based on a namespace object."""
+        cls.output_dir = options.dir
+        cls.name = options.name
 
 
 def plot_travel_time(dataset, cols, name, ax):
@@ -96,4 +117,5 @@ def main(sources):
 def cli_entry():
     """Entry point for command line script."""
     parsed_args = parse_args()
+    Output.from_namespace(parsed_args)
     main(parsed_args.input)

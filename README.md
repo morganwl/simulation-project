@@ -54,7 +54,7 @@ Our overall model makes the following assumptions and simplifications:
     - [ ] properly switch between queues to handle transfers
   - [X] random daily scaling of traffic and passenger rates
 - [ ] 0.4.0 improved reporting
-  - [ ] fix plotting of more than two experiments
+  - [X] fix plotting of more than two experiments
   - [ ] find way to demonstrate cascading effect
   - [ ] generate plot of the PERT distribution
   - [ ] collect events from each trial directly (compressed?)
