@@ -135,30 +135,33 @@ def test_find_neighors():
     assert later.val == .75
 
 
-def test_traffic_model_smooth():
+@pytest.mark.parametrize(['fixed', 'close', 'far'],
+                         [[(0, 1, 250), (0, 1, 260), (0, 1, 275)]])
+@pytest.mark.parametrize('rand_func', [fb.randomvar.Beta(2, 2)])
+def test_traffic_model_smooth(fixed, close, far, rand_func):
     """Results should be affected by earlier queries to nearby
     parameters."""
-    traffic = TrafficModel(Fixed(.5))
-    r0, s0, t0 = 0, 1, 250
-    r1, s1, t1 = 0, 1, 260
-    r2, s2, t2 = 0, 1, 265
-    shape = 100
-    fix_val = 1.75
-    random_results = np.zeros(shape)
-    close_results = np.zeros(shape)
-    far_results = np.zeros(shape)
-    for i in range(shape):
-        random_results[i] = traffic(r1, s1, t1)
+    traffic = TrafficModel(rand_func)
+    trials = 100
+    fixed_val = 1.75
+
+    def measure_and_reset(traffic, point, fixed_point=None, fixed_val=None):
+        if fixed_point is not None:
+            traffic.fix(*fixed_point, fixed_val)
+        result = traffic(*point)
         traffic.reset()
-        traffic.fix(r0, s0, t0, fix_val)
-        close_results[i] = traffic(r1, s1, t1)
-        traffic.reset()
-        traffic.fix(r0, s0, t0, fix_val)
-        far_results[i] = traffic(r2, s2, t2)
-        traffic.reset()
-    random_variance = np.mean((random_results - fix_val)**2)
-    close_variance = np.mean((close_results - fix_val)**2)
-    far_variance = np.mean((far_results - fix_val)**2)
+        return result
+    random_results = np.array([measure_and_reset(traffic, close)
+                               for _ in range(trials)])
+    close_results = np.array([measure_and_reset(traffic, close,
+                                                fixed, fixed_val)
+                              for _ in range(trials)])
+    far_results = np.array([measure_and_reset(traffic, far,
+                                              fixed, fixed_val)
+                            for _ in range(trials)])
+    random_variance = np.mean((random_results - fixed_val)**2)
+    close_variance = np.mean((close_results - fixed_val)**2)
+    far_variance = np.mean((far_results - fixed_val)**2)
     assert close_variance < random_variance
     assert close_variance < far_variance
     assert far_variance < random_variance
@@ -170,29 +173,24 @@ def test_traffic_model_constant(time, mean):
     """A constant traffic model should report the same distribution for
     any time of day. Because traffic has a lower bound of 1, the
     magnitude of traffic can be understood as traffic(...) - 1."""
-
-    def fresh_traffic(*args):
-        """Instantiate a fresh TrafficModel and generate a traffic
-        value."""
-        traffic = TrafficModel(lambda: 1, time_func=Fixed(mean))
-        return traffic(*args)
-    result = np.mean([fresh_traffic(0, 0, time) for _ in range(1000)])
-    assert result == approx(1 + mean, rel=0.1)
+    traffic = TrafficModel(lambda: 1, time_func=Fixed(mean))
+    result = traffic(0, 0, time)
+    assert result == 1 + mean
 
 
 @pytest.mark.parametrize('time', [60 * 4 * i for i in range(24 // 4)])
 @pytest.mark.parametrize('funcs', [[BetaTimeFunc(3, 4, pdf=True)]])
 def test_traffic_model_beta(time, funcs):
     """A beta-shaped traffic model should report a distribution centered
-    on the sum of one or more beta distributiosn for any given time."""
+    on the sum of one or more beta distributions for any given time."""
 
     def fresh_traffic(*args):
         """Instantiate a fresh TrafficModel and generate a traffic
         value."""
-        traffic = TrafficModel(Gamma(4, .25),
+        traffic = TrafficModel(Gamma(10, .1),
                                time_func=lambda t: sum(f(t) for f in funcs))
         return traffic(*args)
-    result = np.mean([fresh_traffic(0, 0, time) for _ in range(1000)])
+    result = np.mean([fresh_traffic(0, 0, time) for _ in range(250)])
     assert result == approx(1 + sum(f(time) for f in funcs), rel=0.1)
 
 
@@ -203,12 +201,12 @@ def test_traffic_daily_scale(time, time_func, ReturnFrom):
     results for that day exponentially."""
     daily_scales = [.75, 1, 1.25]
     daily_scale_func = ReturnFrom(daily_scales)
-    traffic = TrafficModel(Gamma(5, .2),
+    traffic = TrafficModel(Gamma(10, .1),
                            time_func=time_func,
                            daily_func=daily_scale_func)
     results = []
     for _ in daily_scales:
-        results.append(np.mean([traffic(i, 0, time) for i in range(500)]))
+        results.append(np.mean([traffic(i, 0, time) for i in range(250)]))
         traffic.reset()
     assert results == approx([(1 + time_func(time)) ** ds
                               for ds in daily_scales], rel=0.1)

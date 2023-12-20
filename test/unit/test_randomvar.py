@@ -1,5 +1,6 @@
 """Tests random variable generators."""
 
+import pytest
 from pytest import approx
 import numpy as np
 
@@ -184,3 +185,19 @@ def test_beta_time_func_sums_integral():
     expected = 1
     result = np.sum(kernel(24*60, 24*60))
     assert result == approx(expected, rel=0.0001)
+
+
+@pytest.mark.parametrize(['RV', 'params', 'mean'],
+                           [[Pois, [12], 12],
+                            [TimeVarPois, [12, lambda x, scale: .5], 6]])
+@pytest.mark.parametrize('time', [30, 60, 120, 240, 480, 1200])
+def test_rv_daily_func(RV, params, mean, time, ReturnFrom):
+    daily_values = [.5, .75, 1.25, 1.5]
+    daily_func = ReturnFrom(daily_values)
+    rv = RV(*params, daily_func=daily_func)
+    results = []
+    for _ in daily_values:
+        results.append(np.mean([rv(time) for _ in range(500)]))
+        rv.reset()
+    assert results == approx([dv * mean for dv in daily_values],
+                             rel=0.1)

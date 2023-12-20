@@ -113,17 +113,20 @@ class FixedAlternating(RandomVar):
 @auto_repr
 class Pois(RandomVar):
     """Returns a poisson random variable."""
-    def __init__(self, mean):
+    def __init__(self, mean, daily_func=None):
         self.mean = np.array(mean)
+        self.daily_func = daily_func
+        self._daily_scale = daily_func() if daily_func else 1
         self._dim = len(self.mean.shape)
         self._rng = np.random.default_rng()
 
     def __call__(self, *args, scale=1, n=None):
         mean = self.mean[tuple(args[:self._dim])]
         try:
-            return self._rng.poisson(scale * mean(*args[self._dim:], n=n))
+            rate = scale * mean(*args[self._dim:], n=n)
         except TypeError:
-            return self._rng.poisson(scale * mean, size=n)
+            rate = scale * mean
+        return self._rng.poisson(self._daily_scale * rate, size=n)
 
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
@@ -137,6 +140,12 @@ class Pois(RandomVar):
         """Returns the sum of arrival times, given n arrivals over time t."""
         return sum(self._rng.uniform(0, t) for _ in range(n))
 
+    def reset(self):
+        """Generates new daily scale from daily_func, if one has been
+        provided."""
+        if self.daily_func:
+            self._daily_scale = self.daily_func()
+
     def __repr__(self):
         return (f'{type(self).__name__}('
                 f'{np.array_str(self.mean)})'.replace('\n', ''))
@@ -144,9 +153,12 @@ class Pois(RandomVar):
 
 @auto_repr
 class TimeVarPois(RandomVar):
-    def __init__(self, mean, time_func):
+    """A Poisson random variable conditioned on some function f(time)."""
+    def __init__(self, mean, time_func, daily_func=None):
         self.mean = np.array(mean)
         self.time_func = time_func
+        self.daily_func = daily_func
+        self._daily_scale = daily_func() if daily_func else 1
         self._dim = len(self.mean.shape)
         self._rng = np.random.default_rng()
 
@@ -169,19 +181,21 @@ class TimeVarPois(RandomVar):
         except TypeError:
             pass
         time_coef = self.time_func(t, scale=scale)
-        # if n is None:
-        #     size = time_coef.shape
-        # else:
-        #     size = (n, 1) if not time_coef.shape else (n,) + (time_coef).shape
-        return self._rng.poisson(time_coef * mean, size=n)
+        return self._rng.poisson(time_coef * self._daily_scale * mean, size=n)
 
     def sum_arrivals(self, n, t):
         """Returns the sum of arrival times, given n arrivals over time t."""
         return sum(self._rng.uniform(0, t) for _ in range(n))
 
+    def reset(self):
+        """Generates new daily scale from daily_func, if one has been
+        provided."""
+        if self.daily_func:
+            self._daily_scale = self.daily_func()
+
 
 @auto_repr
-class Pert(RandomVar):
+class Pert:
     """Random variable matching the PERT distribution, generated with numpy."""
     def __init__(self, a, b, c, lamb=4, scale=None):
         self.a, self.b, self.c = a, b, c
@@ -205,6 +219,7 @@ class Pert(RandomVar):
 
 @auto_repr
 class Beta:
+    """Random variable matching the beta distribution."""
     def __init__(self, a, b, bias=0):
         self.a = a
         self.b = b
@@ -318,7 +333,7 @@ class BetaTimeFunc:
         self.pdf = pdf
         self._rv = scipy.stats.beta(a, b)
         if pdf:
-            self.__call__ = self.pdf
+            self.__call__ = self._pdf
 
     def scale_input(self, t):
         """Scales an input in minutes to a fraction of a day in
@@ -329,6 +344,6 @@ class BetaTimeFunc:
     def __call__(self, t):
         return self._rv.cdf(self.scale_input(t)) * self.area
 
-    def pdf(self, t):
+    def _pdf(self, t):
         """Returns the probability density function at time t."""
         return self._rv.pdf(self.scale_input(t)) * self.area

@@ -52,10 +52,17 @@ Our overall model makes the following assumptions and simplifications:
   - [X] transfers
     - [ ] in large system
     - [ ] properly switch between queues to handle transfers
-  - [ ] random daily scaling of traffic and passenger rates
-  - [ ] non-uniform rate for each stop
+  - [X] random daily scaling of traffic and passenger rates
+- [ ] 0.4.0 improved reporting
+  - [ ] fix plotting of more than two experiments
   - [ ] find way to demonstrate cascading effect
   - [ ] generate plot of the PERT distribution
+  - [ ] collect events from each trial directly (compressed?)
+  - [ ] plot traffic
+  - [ ] automatically detect current experiment hash and appropriate
+    results file
+- [ ] 0.5.0 submission-ready
+  - [ ] rework traffic decay model
+  - [ ] one more bus line with transfers
+  - [ ] non-uniform rate for each stop
   - [ ] scheduled departure time and intermediate stops
-  - [ ] input parameters via YAML
-  - [ ] one more bus line

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "freebus"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
     'numpy',
     'scipy'
@@ -13,6 +13,13 @@ dependencies = [
 [project.scripts]
 fbsimulate = 'freebus:main.cli_entry'
 fbtabulate = 'freebus:results.cli_entry'
+
+[tool.pylint.main]
+ignore-patterns = ["^\\.#"]
+[tool.pylint.basic]
+good-names = ["i", "j", "k", "ex", "Run", "_"]
+[tool.pylint."messages control"]
+disable = ['too-many-instance-attributes', 'too-many-arguments', 'too-few-public-methods']
 
 [tool.pytest.ini_options]
 addopts = [

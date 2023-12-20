@@ -3,10 +3,6 @@
 from dataclasses import dataclass, field
 from zlib import crc32
 
-import numpy as np
-from scipy.special import beta, gamma
-import scipy.stats
-
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
     IndicatorKernel, auto_repr, Gamma, SumOf, Beta
@@ -51,10 +47,11 @@ class Routes:
 
     def reset(self):
         """Resets any per-trial parameters."""
-        try:
-            self.traffic.reset()
-        except AttributeError:
-            pass
+        for rv in ['traffic', 'demand_loading']:
+            try:
+                getattr(self, rv).reset()
+            except AttributeError:
+                pass
 
 
 @dataclass
@@ -85,12 +82,10 @@ class TrafficModel:
                  daily_func=None):
         self.rand_scale = rand_scale
         if time_func is None:
-            time_func = lambda x: 0
+            time_func = Fixed(0)
         self.time_func = time_func
-        if daily_func is None:
-            daily_func = lambda: 1
         self.daily_func = daily_func
-        self._daily_scale = daily_func()
+        self._daily_scale = daily_func() if daily_func else 1
         self.time_trees = {}
 
     def __call__(self, route, stop, t):
@@ -107,7 +102,7 @@ class TrafficModel:
             val += w * later.val
         val += ((1 - weight) *
                 (1 + self.time_func(t))
-                 ** (self.rand_scale() * self._daily_scale))
+                ** (self.rand_scale() * self._daily_scale))
         self.insert(route, stop, t, val)
         return val
 
@@ -149,7 +144,8 @@ class TrafficModel:
     def reset(self):
         """Reset per-trial values in the traffic model."""
         self.time_trees = {}
-        self._daily_scale = self.daily_func()
+        if self.daily_func:
+            self._daily_scale = self.daily_func()
 
     def fix(self, route, stop, t, val):
         self.insert(route, stop, t, val)
@@ -268,26 +264,28 @@ def get_builtin_routes():
             traffic=TrafficModel(Gamma(4, .25),
                                  SumOf([BetaTimeFunc(8, 5, pdf=True),
                                         BetaTimeFunc(10, 15, pdf=True)]),
-                                 daily_func=Beta(6, 4, bias=.5)),
+                                 daily_func=Beta(4, 2.5, bias=.5)),
             demand_loading=TimeVarPois([[117] * 47 + [0]],
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(6, 14, area=0.5),
                                            BetaTimeFunc(4, 2, area=0.5),
-                                       ])),
+                                       ]),
+                                       daily_func=Beta(5, 5, bias=.5)),
             demand_unloading=Pois(([[0] + [117] * 47])),
         ),
         'b35-busy': Routes(
             routes=[48],
-            distance=[[.2]*48],
+            distance=[[.2]*47 + [0]],
             traffic=TrafficModel(Gamma(4, .25),
                                  SumOf([BetaTimeFunc(8, 5, pdf=True),
                                         BetaTimeFunc(10, 15, pdf=True)]),
-                                 daily_func=Beta(6, 4, bias=.5)),
+                                 daily_func=Beta(4, 2.5, bias=.5)),
             demand_loading=TimeVarPois([[180] * 47 + [0]],
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(4, 2, area=0.5),
                                            BetaTimeFunc(6, 14, area=0.5),
-                                       ])),
+                                       ]),
+                                       daily_func=Beta(5, 5, bias=.5)),
             demand_unloading=Pois(([[0] + [180] * 47])),
         ),
     }
