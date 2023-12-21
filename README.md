@@ -56,7 +56,7 @@ Our overall model makes the following assumptions and simplifications:
 - [ ] 0.4.0 improved reporting
   - [X] fix plotting of more than two experiments
   - [X] find way to demonstrate cascading effect
-  - [ ] generate plot of the PERT distribution
+  - [X] generate plot of the PERT distribution
   - [ ] collect events from each trial directly (compressed?)
   - [X] plot traffic
   - [X] automatically detect current experiment hash and appropriate

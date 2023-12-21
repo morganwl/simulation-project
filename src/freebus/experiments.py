@@ -411,7 +411,7 @@ class CapacityScale:
         pass
 
     def __call__(self, t, passengers):
-        return t * min(1, 1.1**(passengers - 20))
+        return t * max(1, 1.1**(passengers - 20))
 
 
 capacity_scale = CapacityScale()

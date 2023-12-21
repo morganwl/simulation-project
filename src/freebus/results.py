@@ -11,6 +11,7 @@ import numpy as np
 
 from .main import Defaults, confidence_interval
 from .experiments import get_builtin_experiments
+from .randomvar import Pert
 
 COLS = 2
 
@@ -104,7 +105,6 @@ def plot_estimate_line(dataset, cols, ax, loading, travel_time):
     ax.plot(loading, estimate_travel)
 
 
-
 def plot_travel_vs_loading(datasets):
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
                                  sharey=True, sharex=True)
@@ -112,6 +112,16 @@ def plot_travel_vs_loading(datasets):
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_tvl(ds, cols, name, ax)
     Output.figure(fig, datasets[0][2], 'tvl')
+
+
+def plot_loading_distribution():
+    fig = plt.figure()
+    fig.suptitle('Sample loading distribution')
+    pert = Pert(1/60, 12/60, 120/60, lamb=6)
+    plt.hist([pert() for _ in range(50000)], bins=20)
+    pert = Pert(1/60, 3/60, 120/60, lamb=6)
+    plt.hist([pert() for _ in range(50000)], bins=20)
+    Output.figure(fig, 'pert', 'pert')
 
 
 def plot_travel_time(dataset, cols, name, ax):
@@ -225,6 +235,7 @@ def main(sources):
     plot_traffic_daily(datasets)
     plot_traffic_per_hour(datasets)
     plot_travel_vs_loading(datasets)
+    plot_loading_distribution()
     Output.html_report()
 
 
