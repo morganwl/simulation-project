@@ -8,8 +8,9 @@ import os
 import numpy as np
 
 from .trial import simulate
-from .experiments import get_builtin_experiments
+from .experiments import get_builtin_experiments, capacity_scale
 from .measure import measure
+from .randomvar import Pert
 
 SPEED = 20/60
 
@@ -36,6 +37,9 @@ def parse_args() -> argparse.Namespace:
                         help='predefined experiment profile to use',
                         default=Defaults.experiment,
                         choices=Defaults.experiments)
+    parser.add_argument('--pert', '-p',
+                        help='parameters for time loading pert distribution',
+                        type=seconds)
     parser.add_argument('--output', '-o',
                         help='file to append results to',
                         default=Defaults.output)
@@ -46,12 +50,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def seconds(s):
+    """Parses a string containing a list of seconds and returns a list
+    of floats."""
+    return [float(f)/60 for f in s.split(',')]
+
+
 def simulate_batch(experiment, batch_size):
     """Returns an array of results for a batch of trials."""
     batch = np.empty((batch_size, len(experiment.headers)), dtype=np.float64)
     for i in range(batch_size):
         batch[i] = measure(simulate(experiment), experiment.headers,
-                           experiment.traffic)
+                           experiment.traffic, experiment.time_loading)
     return batch
 
 
@@ -98,11 +108,14 @@ def confidence_interval(trials, rng=None, confidence=.95):
     return intervals
 
 
-def main(experiment, numtrials, output, batchsize=40, params_cache=None):
+def main(experiment, numtrials, output, batchsize=40, pert=None, params_cache=None):
     """Performs trials and appends the results for each to an output csv."""
     rng = np.random.default_rng()
     if params_cache is not None:
         update_params_cache(experiment, params_cache)
+    if pert is not None:
+        experiment.time_loading = Pert(*pert, lamb=3, scale=capacity_scale)
+        experiment.gather_pert = True
     print(f'{"var":6s}', end='')
     for h in experiment.headers[:5]:
         print(f'{h:>18s}', end='')
@@ -137,4 +150,5 @@ def cli_entry():
     options.output = options.output.format(
         name=options.experiment, checksum=experiment.checksum())
     main(experiment, options.numtrials, options.output,
-         batchsize=options.batchsize, params_cache=options.params_cache)
+         batchsize=options.batchsize, pert=options.pert,
+         params_cache=options.params_cache)

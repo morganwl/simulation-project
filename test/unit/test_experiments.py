@@ -62,6 +62,17 @@ def test_experiment_repr_poisson():
     assert str(exp1) != str(exp3)
 
 
+def test_experiment_repr_gather_pert():
+    """The gather Pert option does not include loading time information
+    in the experiment __repr__."""
+    builtins = get_builtin_experiments()
+    short = builtins['b35-short']
+    long = builtins['b35-long']
+    short.gather_pert = True
+    long.gather_pert = True
+    assert repr(short) == repr(long)
+
+
 def test_experiment_repr_builtins():
     """Tests that all builtin experiments have a stable
     representation."""

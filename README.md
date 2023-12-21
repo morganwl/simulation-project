@@ -55,11 +55,12 @@ Our overall model makes the following assumptions and simplifications:
   - [X] random daily scaling of traffic and passenger rates
 - [ ] 0.4.0 improved reporting
   - [X] fix plotting of more than two experiments
-  - [ ] find way to demonstrate cascading effect
+  - [X] find way to demonstrate cascading effect
   - [ ] generate plot of the PERT distribution
   - [ ] collect events from each trial directly (compressed?)
   - [X] plot traffic
   - [X] automatically detect current experiment hash and appropriate
+  - [X] wide range of Pert distribution samples
     results file
 - [ ] 0.5.0 submission-ready
   - [ ] rework traffic decay model

@@ -6,6 +6,7 @@ import itertools
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.collections import PatchCollection
 import numpy as np
 
 from .main import Defaults, confidence_interval
@@ -70,6 +71,49 @@ class Output:
             f.write('</body></html>')
 
 
+def plot_tvl(dataset, cols, name, ax):
+    loading = np.unique(dataset[:, cols['pert-mean']])
+    groups = (dataset[:, cols['pert-mean']] == u
+              for u in loading)
+    groups = (dataset[g] for g in groups)
+    sums = (np.sum(g[:, [cols['waiting-time'],
+                         cols['loading-time'],
+                         cols['moving-time'],
+                         cols['holding-time']]],
+                   axis=1) for g in groups)
+    sums = list(sums)
+    travel_time = np.fromiter((np.mean(s) for s in sums),
+                              dtype=np.float64)
+    confidence = [confidence_interval(np.array([s]).transpose())[0] for s in sums]
+    upper_confidence = np.array([c1 for c0, c1 in confidence])
+    lower_confidence = np.array([c0 for c0, c1 in confidence]) 
+    seconds = loading * 60
+    ax.plot(seconds, travel_time)
+    ax.plot(seconds, upper_confidence, alpha=0.5)
+    ax.plot(seconds, lower_confidence, alpha=0.5)
+    plot_estimate_line(dataset, cols, ax, loading[3:], travel_time[3:])
+    ax.title.set_text(f'{name}')
+
+
+def plot_estimate_line(dataset, cols, ax, loading, travel_time):
+    base_group = dataset[dataset[:, cols['pert-mean']] == loading[0]]
+    base_loading = np.mean(base_group[:, cols['loading-time']]) / 3
+    loading = loading * 60
+    estimate_travel = (travel_time[0] + (loading / loading[0] - 1) *
+                       base_loading)
+    ax.plot(loading, estimate_travel)
+
+
+
+def plot_travel_vs_loading(datasets):
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
+                                 sharey=True, sharex=True)
+    fig.suptitle('Travel vs loading mean')
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
+        plot_tvl(ds, cols, name, ax)
+    Output.figure(fig, datasets[0][2], 'tvl')
+
+
 def plot_travel_time(dataset, cols, name, ax):
     """Plot a histogram for total travel times from a single dataset."""
     travel_time = np.sum(dataset[:, [cols['waiting-time'],
@@ -95,7 +139,7 @@ def plot_travel_times(datasets):
     """Plot the total travel times for one or more datasets
     side-by-side."""
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 squeeze=True, sharey=True, sharex=True)
+                                 sharey=True, sharex=True)
     fig.suptitle('Total Travel Time')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_travel_time(ds, cols, name, ax)
@@ -106,7 +150,7 @@ def plot_passengers_per_hour(datasets):
     """Plot mean passengers per hour for one or more datasets
     side-by-side."""
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 squeeze=True, sharey=True, sharex=True)
+                                 sharey=True, sharex=True)
     fig.suptitle('Passengers per hour')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_pph(ds, cols, name, ax)
@@ -116,7 +160,7 @@ def plot_passengers_per_hour(datasets):
 def plot_traffic_daily(datasets):
     """Plot a histogram of daily traffic volume."""
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 squeeze=True, sharey=True, sharex=True)
+                                 sharey=True, sharex=True)
     fig.suptitle('Daily traffic volume')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_traffic(ds, cols, name, ax)
@@ -132,7 +176,7 @@ def plot_traffic(dataset, cols, name, ax):
 
 def plot_traffic_per_hour(datasets):
     fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 squeeze=True, sharey=True, sharex=True)
+                                 sharey=True, sharex=True)
     fig.suptitle('Traffic per hour')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_tph(ds, cols, name, ax)
@@ -180,6 +224,7 @@ def main(sources):
     plot_passengers_per_hour(datasets)
     plot_traffic_daily(datasets)
     plot_traffic_per_hour(datasets)
+    plot_travel_vs_loading(datasets)
     Output.html_report()
 
 

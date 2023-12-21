@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from zlib import crc32
 
+import numpy as np
+
 from .randomvar import RandomVar, Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, SumOfDistributionKernel, GammaTimeFunc, BetaTimeFunc, \
     IndicatorKernel, auto_repr, Gamma, SumOf, Beta
@@ -19,6 +21,7 @@ class Headers:
                          + tuple(f'passengers-{i}' for i in range(24)))
     TRAFFIC = SIMPLE + EXTENDED + (('traffic-daily',) +
                                    tuple(f'traffic-{i}' for i in range(24)))
+    PERT = TRAFFIC + ('pert-min', 'pert-mean', 'pert-max',)
 
 
 @dataclass
@@ -179,13 +182,15 @@ class Experiment:
                  time_loading, time_unloading,
                  schedule,
                  headers,
-                 speed=20/60):
+                 speed=20/60,
+                 gather_pert=False):
         self._routes = routes
         self.time_loading = time_loading
         self.time_unloading = time_unloading
         self.schedule = schedule
         self.headers = headers
         self.speed = speed
+        self.gather_pert = gather_pert
 
     def checksum(self):
         """Returns a crc32 checksum of the experimental parameters as a
@@ -227,13 +232,23 @@ class Experiment:
         self._routes.reset()
 
     def __repr__(self):
+        if self.gather_pert:
+            return (
+                f'{type(self).__name__}('
+                f'{self.routes}, {self.distance}, '
+                f'{self.schedule}, {self.headers}, '
+                f'traffic={self.traffic}, demand_loading={self.demand_loading}, '
+                f'demand_unloading={self.demand_unloading}, '
+                f'time_loading=<hidden>, '
+                f'time_unloading=<hidden>)')
         return (
             f'{type(self).__name__}('
             f'{self.routes}, {self.distance}, '
             f'{self.schedule}, {self.headers}, '
             f'traffic={self.traffic}, demand_loading={self.demand_loading}, '
             f'demand_unloading={self.demand_unloading}, '
-            f'time_loading={self.time_loading})')
+            f'time_loading={self.time_loading}, '
+            f'time_unloading={self.time_unloading})')
 
 
 def b35_schedule():
@@ -347,7 +362,8 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.TRAFFIC,
+            headers=Headers.PERT,
+            speed=12/60,
         ),
         'b35-long': Experiment(
             routes=routes['b35'],
@@ -355,7 +371,18 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.TRAFFIC,
+            headers=Headers.PERT,
+            speed=12/60,
+        ),
+        'b35-variable': Experiment(
+            routes=routes['b35'],
+            time_loading=Pert(1/60, np.random.uniform(1, 30)/60, 120/60,
+                              lamb=3, scale=capacity_scale),
+            time_unloading=Fixed(.05),
+            schedule=b35_schedule(),
+            gather_pert=True,
+            headers=Headers.PERT,
+            speed=12/60,
         ),
         'b35-short-busy': Experiment(
             routes=routes['b35-busy'],
@@ -363,7 +390,8 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.TRAFFIC,
+            headers=Headers.PERT,
+            speed=12/60,
         ),
         'b35-long-busy': Experiment(
             routes=routes['b35-busy'],
@@ -371,7 +399,8 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
-            headers=Headers.TRAFFIC,
+            headers=Headers.PERT,
+            speed=12/60,
         ),
     }
 

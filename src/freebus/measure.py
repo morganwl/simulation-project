@@ -6,7 +6,7 @@ import statistics
 import numpy as np
 
 
-def measure(events, headers, traffic=None):
+def measure(events, headers, traffic=None, pert=None):
     """Returns an array of variables, measured from a list of events."""
     rv = {}
     total_passengers = max(measure_passengers(events),
@@ -14,6 +14,15 @@ def measure(events, headers, traffic=None):
     for h in headers:
         if h == 'total-passengers':
             rv[h] = total_passengers
+            continue
+        if h == 'pert-min':
+            rv[h] = pert.a
+            continue
+        if h == 'pert-mean':
+            rv[h] = pert.b
+            continue
+        if h == 'pert-max':
+            rv[h] = pert.c
             continue
         handler = rv_handlers.get(h, None)
         if handler is not None:
@@ -101,7 +110,7 @@ def measure_traffic_daily(traffic):
     equally spaced trip segments. For this reason, it makes sense to
     calculate the mean across unweighted points of traffic values.
     """
-    return statistics.mean(val for route, stop, time, val in traffic)
+    return statistics.fmean(val for route, stop, time, val in traffic)
 
 
 def measure_traffic_range(traffic, start, stop):

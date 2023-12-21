@@ -24,7 +24,7 @@ def test_measure_traffic_daily(traffic_instances):
     result = fb.measure.measure_traffic_daily(traffic)
     expected = np.mean([val for route, stop, time, val
                         in traffic_instances])
-    assert result == expected
+    assert result == approx(expected)
 
 
 def test_measure_traffic_hourly(traffic_instances):
