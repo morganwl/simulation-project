@@ -63,6 +63,11 @@ Our overall model makes the following assumptions and simplifications:
   - [X] wide range of Pert distribution samples
     results file
 - [ ] 0.5.0 submission-ready
+  - [ ] fix passenger inter-arrival times
+      - [ ] include lamb in recorded data
+      - [ ] tweak minimum between shorter and longer
+      - [ ] think about the area of middle 50%?
+  - [ ] plot bus line variances
   - [ ] rework traffic decay model
   - [ ] one more bus line with transfers
   - [ ] non-uniform rate for each stop

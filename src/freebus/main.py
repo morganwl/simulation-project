@@ -93,7 +93,7 @@ def update_params_cache(experiment, params_cache):
         f.write('\n')
 
 
-def confidence_interval(trials, rng=None, confidence=.95):
+def confidence_interval(trials, rng=None, confidence=.95, quantile=.5):
     """Returns a (min,max) confidence interval for each column in trials."""
     # NB: numpy percentile inputs percentage as n in [0,100].
     if rng is None:
@@ -101,7 +101,7 @@ def confidence_interval(trials, rng=None, confidence=.95):
     header = 100 * ((1 - confidence) / 2)
     means = np.empty((1000, trials.shape[1]), dtype=np.float64)
     for i in range(means.shape[0]):
-        means[i] = np.mean(rng.choice(trials, trials.shape[0]), axis=0)
+        means[i] = np.quantile(rng.choice(trials, trials.shape[0]), quantile, axis=0)
     intervals = np.column_stack([
         np.percentile(means, header, axis=0),
         np.percentile(means, 100-header, axis=0)])

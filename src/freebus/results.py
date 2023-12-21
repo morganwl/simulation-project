@@ -72,7 +72,7 @@ class Output:
             f.write('</body></html>')
 
 
-def plot_tvl(dataset, cols, name, ax):
+def plot_tvl(dataset, cols, name, ax, quantile=.95):
     loading = np.unique(dataset[:, cols['pert-mean']])
     groups = (dataset[:, cols['pert-mean']] == u
               for u in loading)
@@ -83,9 +83,11 @@ def plot_tvl(dataset, cols, name, ax):
                          cols['holding-time']]],
                    axis=1) for g in groups)
     sums = list(sums)
-    travel_time = np.fromiter((np.mean(s) for s in sums),
+    travel_time = np.fromiter((np.quantile(s, quantile) for s in sums),
                               dtype=np.float64)
-    confidence = [confidence_interval(np.array([s]).transpose())[0] for s in sums]
+    confidence = [confidence_interval(np.array([s]).transpose(),
+                                      quantile=quantile)[0]
+                  for s in sums]
     upper_confidence = np.array([c1 for c0, c1 in confidence])
     lower_confidence = np.array([c0 for c0, c1 in confidence]) 
     seconds = loading * 60
@@ -202,6 +204,21 @@ def plot_tph(dataset, cols, name, ax):
     ax.title.set_text(f'{name}')
 
 
+def plot_passengers_daily(datasets):
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
+                                 sharey=True, sharex=True)
+    fig.suptitle('Daily passengers')
+    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
+        plot_passengers(ds, cols, name, ax)
+    Output.figure(fig, datasets[0][2], 'passengers')
+
+
+def plot_passengers(dataset, cols, name, ax):
+    passengers = dataset[:, cols['total-passengers']]
+    ax.hist(passengers, density=True)
+    ax.title.set_text(f'{name}')
+
+
 def expand_results(sources):
     builtins = get_builtin_experiments()
     for i, source in enumerate(sources):
@@ -232,6 +249,7 @@ def main(sources):
         datasets.append((data, cols, source))
     plot_travel_times(datasets)
     plot_passengers_per_hour(datasets)
+    plot_passengers_daily(datasets)
     plot_traffic_daily(datasets)
     plot_traffic_per_hour(datasets)
     plot_travel_vs_loading(datasets)
