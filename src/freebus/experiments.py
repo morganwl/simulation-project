@@ -94,18 +94,19 @@ class TrafficModel:
         self.time_trees = {}
 
     def __call__(self, route, stop, t):
-        earlier, later = self.find_neighbors(route, stop, t)
         weight = 0
         val = 0
-        if earlier:
-            w = .5 * .9**(t - earlier.time)
-            weight += w
-            val += w * earlier.val
-        if later:
-            w = .5 * .9**(later.time - t)
-            weight += w
-            val += w * later.val
-        val += ((1 - weight) *
+        for offset in [-1, 0, 1]:
+            earlier, later = self.find_neighbors(route, stop + offset, t)
+            if earlier:
+                w = (.5 - abs(offset)/4) * .9**(t - earlier.time + 2 * abs(offset))
+                weight += w
+                val += w * earlier.val
+            if later:
+                w = (.5 - abs(offset)/4) * .9**(later.time - t + 2 * abs(offset))
+                weight += w
+                val += w * later.val
+        val += (max((1 - weight), 0) *
                 (1 + self.time_func(t))
                 ** (self.rand_scale() * self._daily_scale))
         self.insert(route, stop, t, val)
@@ -321,6 +322,23 @@ def get_builtin_routes():
                                        daily_func=Beta(5, 5, bias=.5)),
             demand_unloading=Pois(([[0] + [180] * 47])),
         ),
+        'brooklyn': Routes(
+            routes=[48, 42],
+            distance=[[.2] * 47 + [0], [.3] * 41 + [0]],
+            traffic=TrafficModel(Gamma(4, .25),
+                                 SumOf([BetaTimeFunc(10, 5, pdf=True),
+                                        BetaTimeFunc(10, 15, pdf=True)]),
+                                 daily_func=Beta(4, 2.5, bias=.5)),
+            demand_loading=TimeVarPois([[264] * 47 + [0],
+                                        [268] * 41 + [0] * 7],
+                                       SumOfDistributionKernel([
+                                           BetaTimeFunc(4, 2, area=0.5),
+                                           BetaTimeFunc(6, 14, area=0.5),
+                                       ]),
+                                       daily_func=Beta(5, 5, bias=.5)),
+            demand_unloading=Fixed(([[0] + [1] * 47, [0] + [1] * 41 + [0] * 6])),
+            transfers=[(0,21,1,17,.7), (1,17,0,21,.75)]
+        ),
     }
 
 
@@ -399,6 +417,16 @@ def get_builtin_experiments():
                               scale=capacity_scale),
             time_unloading=Fixed(.05),
             schedule=b35_schedule(),
+            headers=Headers.PERT,
+            speed=12/60,
+        ),
+        'brooklyn': Experiment(
+            routes=routes['brooklyn'],
+            time_loading=Pert(1/60, np.random.uniform(1, 30)/60, 120/60,
+                              lamb=3, scale=capacity_scale),
+            time_unloading=Fixed(.05),
+            schedule=b35_schedule() + b35_schedule(),
+            gather_pert=True,
             headers=Headers.PERT,
             speed=12/60,
         ),

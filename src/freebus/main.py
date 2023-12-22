@@ -149,6 +149,7 @@ def cli_entry():
     experiment = Defaults.experiments.get(options.experiment)
     options.output = options.output.format(
         name=options.experiment, checksum=experiment.checksum())
+    print(options.pert)
     main(experiment, options.numtrials, options.output,
          batchsize=options.batchsize, pert=options.pert,
          params_cache=options.params_cache)

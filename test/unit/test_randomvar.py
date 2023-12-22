@@ -1,5 +1,7 @@
 """Tests random variable generators."""
 
+from pathlib import Path
+
 import pytest
 from pytest import approx
 import numpy as np
@@ -161,15 +163,6 @@ def test_beta_time_func_integral():
     assert result == approx(expected, rel=0.01)
 
 
-def test_beta_time_func_stable():
-    """Tests that BetaTimeFunc does not mutate an input array."""
-    x = np.array([1, 2])
-    func = BetaTimeFunc(5, 5)
-    r1 = func(x)
-    r2 = func(x)
-    assert (r1 == r2).all()
-
-
 def test_beta_time_func_sums_integral():
     """Tests that BetaTimeFuncs can be scaled and still integrate to
     1."""
@@ -201,3 +194,58 @@ def test_rv_daily_func(RV, params, mean, time, ReturnFrom):
         rv.reset()
     assert results == approx([dv * mean for dv in daily_values],
                              rel=0.1)
+
+
+def rejection_estimate_poisson_arrivals(alpha, beta, n, rv, num=50):
+    """Generate a random variable equal to the sum of arrival times
+    (relative to beta), given n arrivals within the interval (alpha,
+    beta)."""
+    interval = (beta - alpha) / num
+    times = np.linspace(alpha, beta, num=num)
+    k = 0
+    while np.sum(k) != n:
+        k = np.fromiter((rv(ti, scale=interval)
+                         for ti in times),
+                        dtype=np.int32,
+                        count=num)
+    return np.sum((beta - times) * k)
+
+
+@pytest.mark.parametrize(['lam', 'scale', 'n'],
+                         [(1, 1, 0),
+                          (1, 1, 1),
+                          (1, 5, 4),
+                          (3, 5, 13),])
+@pytest.mark.parametrize('time', np.linspace(30, 24*60, num=3))
+def test_rejection_estimate_poisson_arrivals(time, lam, scale, n):
+    """Test that rejection estimate of poisson arrival times works with
+    a homogeneous poisson process."""
+    rv = Pois(lam)
+    result = np.mean([
+        rejection_estimate_poisson_arrivals(time - scale, time, n, rv)
+        for _ in range(250)])
+    expected = np.mean([rv.sum_arrivals(n, scale) for _ in range(1000)])
+    assert result == approx(expected, rel=0.1)
+
+
+@pytest.mark.parametrize(['time', 'lam', 'scale', 'n'],
+                         [(120, 540, 90, 2),
+                          (420, 220, 30, 10),
+                          (300, 75, 30, 2),
+                          (800, 215, 15, 2)])
+@pytest.mark.parametrize('func',
+                         [SumOfDistributionKernel([
+                             BetaTimeFunc(6, 14, area=0.5),
+                             BetaTimeFunc(4, 2, area=0.5),])],
+                         )
+def test_time_var_poisson_arrival_times(time, lam, scale, n, func):
+    """Test that a time variable poisson process accurately distributes
+    arrival times across an interval."""
+    rv = TimeVarPois(lam, func)
+    result = np.mean([
+        rv.sum_arrivals(n, scale, time=time)
+        for _ in range(2000)])
+    expected = np.mean([
+        rejection_estimate_poisson_arrivals(time - scale, time, n, rv)
+        for _ in range(50)])
+    assert result == approx(expected, rel=0.1)

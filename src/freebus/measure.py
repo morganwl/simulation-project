@@ -55,13 +55,14 @@ def measure_last_event(events, _):
 
 def measure_waiting(events, passengers):
     """Measures the mean waiting time."""
-    return sum(e.waiting * e.dur for e in events) / passengers
+    return sum(e.waiting * e.dur for e in events
+               if e.etype in ['wait', 'transfer_wait']) / passengers
 
 
 def measure_loading(events, passengers):
     """Returns the mean loading and unloading time per passenger."""
     return (sum(e.passengers * e.dur for e in events
-                if e.etype in ['load', 'unload'])
+                if e.etype in ['load', 'unload', 'transfer'])
             / passengers)
 
 
@@ -86,6 +87,9 @@ def measure_passengers(events):
             passengers += e.passengers - buses[(e.route, e.busid)]
             buses[(e.route, e.busid)] = e.passengers
         if e.etype == 'unload':
+            buses[(e.route, e.busid)] = e.passengers
+        if e.etype == 'transfer':
+            passengers -= buses[(e.route, e.busid)] - e.passengers
             buses[(e.route, e.busid)] = e.passengers
     return passengers
 

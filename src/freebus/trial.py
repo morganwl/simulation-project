@@ -20,13 +20,13 @@ class Stop:
 
 class Bus:
     """State structure for a single bus."""
-    def __init__(self, route, stop, time):
-        self.state = 'unload'
+    def __init__(self, route, stop, time, passengers=0, state='unload'):
+        self.state = state
         self.route = route
         self.stop = stop
         self.time = time
         self.id = time
-        self.passengers = 0
+        self.passengers = passengers
         self.active = True
 
     def __repr__(self):
@@ -69,6 +69,8 @@ class Trial:
         states."""
         if bus.state == 'unload':
             return self.generate_event_unload(bus)
+        if bus.state == 'transfer_wait':
+            return self.generate_event_transfer_wait(bus)
         if bus.state == 'transfer':
             return self.generate_event_transfer(bus)
         if bus.state == 'wait':
@@ -83,7 +85,7 @@ class Trial:
         """Generate a depart event."""
         t = (self.experiment.distance[bus.route][bus.stop]
              / self.experiment.speed
-             * self.experiment.traffic(bus.route, bus.stop, bus.time))
+             / self.experiment.traffic(bus.route, bus.stop, bus.time))
         event = Event(bus.time, t, 'depart', bus.route, bus.stop,
                       bus.id, bus.passengers)
         bus.time += t
@@ -98,14 +100,32 @@ class Trial:
         """Generate a passenger wait event."""
         stop = self.stops[bus.route][bus.stop]
         delta = bus.time - stop.last_load
+
+        ##### DEBUGGING FOR NOW #####
+        try:
+            assert delta >= 0
+        except AssertionError:
+            print(bus, stop, delta)
+            raise
+        #############################
+
         n = self.experiment.demand_loading(bus.route, bus.stop,
                                            bus.time, scale=delta)
-        t = (self.experiment.demand_loading.sum_arrivals(n, delta)
+        t = (self.experiment.demand_loading.sum_arrivals(n, delta,
+                                                         time=bus.time)
              + delta * stop.waiting)
         stop.last_load = bus.time
-        stop.waiting += n
+
+        for transfer in self.experiment.get_transfers_to(bus.route,
+                                                         bus.stop):
+            if transfer.waiting:
+                t += transfer.waiting * (bus.time - transfer.last_time)
+                n += transfer.waiting
+                transfer.waiting = 0
+
         if n > 0:
             bus.state = 'load'
+            stop.waiting += n
         else:
             bus.state = 'depart'
         if stop.waiting:
@@ -138,7 +158,7 @@ class Trial:
         if transfers := self.experiment.get_transfers(bus.route, bus.stop):
             rate -= sum(t.rate for t in transfers)
         rate_pct = rate / total_rate
-        n = sum(self.rng.uniform() < rate_pct for _ in range(bus.passengers))
+        n = self.rng.binomial(bus.passengers, rate_pct)
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
         bus.passengers -= n
@@ -146,11 +166,25 @@ class Trial:
                       bus.id, bus.passengers)
         bus.time += t
         if transfers:
-            bus.state = 'transfer'
+            bus.state = 'transfer_wait'
             bus.transfers = deque(transfers)
         else:
             bus.state = 'wait'
         return event
+
+    def generate_event_transfer_wait(self, bus):
+        """Generates an event tracking the wait time of passengers from
+        earlier transfers."""
+        transfers = self.experiment.get_transfers(bus.route, bus.stop)
+        t = sum(bus.time - transfer.last_time
+                for transfer in transfers)
+        n = sum(transfer.waiting
+                for transfer in transfers)
+        for transfer in transfers:
+            transfer.last_time = bus.time
+        bus.state = 'transfer'
+        return Event(bus.time, t, 'transfer_wait', bus.route, bus.stop, bus.id,
+                     bus.passengers, n)
 
     def generate_event_transfer(self, bus):
         """Generates a transfer event."""
@@ -163,16 +197,16 @@ class Trial:
             for s in range(bus.stop+1,
                            self.experiment.routes[bus.route])) +
                                     transfer.rate)
+        assert rate_pct >= 0
         n = self.rng.binomial(bus.passengers, rate_pct)
         if n:
             t = (sum(self.experiment.time_unloading(bus.passengers - i)
-                     for i in range(n)) + transfer.waiting *
-                 (bus.time - transfer.last_time) / (transfer.waiting + n))
+                     for i in range(n)))
         else:
             t = 0
         bus.passengers -= n
         transfer.waiting += n
-        transfer.last_time = bus.time + t
+        transfer.last_time = bus.time
         event = Event(bus.time, t, 'transfer', bus.route, bus.stop,
                       bus.id, bus.passengers, transfer.waiting)
         bus.time += t

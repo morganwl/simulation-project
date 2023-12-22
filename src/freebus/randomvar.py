@@ -2,6 +2,7 @@
 
 from warnings import warn
 import inspect
+from functools import lru_cache
 
 import numpy as np
 import scipy
@@ -42,7 +43,7 @@ class RandomVar:
         parameters."""
         raise NotImplementedError
 
-    def sum_arrivals(self, n, t):
+    def sum_arrivals(self, n, scale, time=None):
         """Given n arrivals over time t, returns the sum of arrival
         times."""
         raise NotImplementedError
@@ -76,7 +77,7 @@ class Fixed(RandomVar):
         """Returns the expected value for any given parameters."""
         return self.val[tuple(args[:self._dim])]
 
-    def sum_arrivals(self, n, t):
+    def sum_arrivals(self, n, t, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
         return sum(i * t/(n+1) for i in range(1, n+1))
 
@@ -101,9 +102,9 @@ class FixedAlternating(RandomVar):
         """Returns the expected value for any given parameters."""
         return np.mean(self.val[tuple(args[:self._dim])])
 
-    def sum_arrivals(self, n, t):
+    def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
-        return sum(i * t/(n+1) for i in range(1, n+1))
+        return sum(i * scale/(n+1) for i in range(1, n+1))
 
     def __repr__(self):
         return (f'{type(self).__name__}({np.array_str(self.val)})'
@@ -136,9 +137,9 @@ class Pois(RandomVar):
         except TypeError:
             return mean
 
-    def sum_arrivals(self, n, t):
+    def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
-        return sum(self._rng.uniform(0, t) for _ in range(n))
+        return sum(self._rng.uniform(0, scale) for _ in range(n))
 
     def reset(self):
         """Generates new daily scale from daily_func, if one has been
@@ -181,11 +182,14 @@ class TimeVarPois(RandomVar):
         except TypeError:
             pass
         time_coef = self.time_func(t, scale=scale)
+        assert scale >= 0
+        assert t >= 0
+        assert time_coef >= 0
         return self._rng.poisson(time_coef * self._daily_scale * mean, size=n)
 
-    def sum_arrivals(self, n, t):
+    def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
-        return sum(self._rng.uniform(0, t) for _ in range(n))
+        return self.time_func.sum_arrivals(time - scale, time, n)
 
     def reset(self):
         """Generates new daily scale from daily_func, if one has been
@@ -294,9 +298,48 @@ class SumOfDistributionKernel:
     distribution functions over time t."""
     def __init__(self, funcs: list):
         self.funcs = funcs
+        self._area = np.array([f.area for f in funcs])
 
+
+    @lru_cache
     def __call__(self, t, scale=1):
         return sum(f(t) - f(t - scale) for f in self.funcs)
+
+    @lru_cache
+    def _cdf(self, t):
+        return sum(f(t) for f in self.funcs)
+
+    def sum_arrivals(self, alpha, beta, n):
+        p_alpha = self._cdf(alpha)
+        p = self._cdf(beta) - p_alpha
+
+        def distance(t, u):
+            return (self._cdf(t) - p_alpha) / p - u
+        return sum(beta -
+                   self.find_zero(distance, (alpha, beta),
+                                  np.random.uniform(),)
+                   for _ in range(n))
+
+    @staticmethod
+    def find_zero(func, bounds, u):
+        """Find the zero of a monotonic function."""
+        lx, ux = bounds
+        assert 0 <= u < 1
+        mx = lx + (ux - lx) * u
+        my = func(mx, u)
+        while ux - lx > .25:
+            if my > 0:
+                tmp = mx
+                mx = ux - (ux - lx) / 2
+                ux = tmp
+                my = func(mx, u)
+            else:
+                tmp = mx
+                mx = lx + (ux - lx) / 2
+                lx = tmp
+                my = func(mx, u)
+        assert bounds[0] <= mx <= bounds[1]
+        return mx
 
 
 @auto_repr
@@ -332,8 +375,6 @@ class BetaTimeFunc:
         self.area = area
         self.pdf = pdf
         self._rv = scipy.stats.beta(a, b)
-        if pdf:
-            self.__call__ = self._pdf
 
     def scale_input(self, t):
         """Scales an input in minutes to a fraction of a day in
@@ -341,9 +382,20 @@ class BetaTimeFunc:
         t = t / 24 / 60
         return t
 
+    def scale_output(self, p):
+        """Scales a fraction of a day in [0,1] to a time in minutes."""
+        return p * 24 * 60
+
     def __call__(self, t):
+        if self.pdf:
+            return self._pdf(t)
         return self._rv.cdf(self.scale_input(t)) * self.area
 
     def _pdf(self, t):
         """Returns the probability density function at time t."""
         return self._rv.pdf(self.scale_input(t)) * self.area
+
+    def inverse(self, u):
+        """Returns the correspondin time t for the unscaled probability
+        u."""
+        return self.scale_output(self._rv.ppf(u))

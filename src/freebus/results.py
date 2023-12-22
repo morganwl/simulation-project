@@ -72,7 +72,7 @@ class Output:
             f.write('</body></html>')
 
 
-def plot_tvl(dataset, cols, name, ax, quantile=.95):
+def plot_tvl(dataset, cols, name, ax, quantile=.5):
     loading = np.unique(dataset[:, cols['pert-mean']])
     groups = (dataset[:, cols['pert-mean']] == u
               for u in loading)
@@ -89,7 +89,7 @@ def plot_tvl(dataset, cols, name, ax, quantile=.95):
                                       quantile=quantile)[0]
                   for s in sums]
     upper_confidence = np.array([c1 for c0, c1 in confidence])
-    lower_confidence = np.array([c0 for c0, c1 in confidence]) 
+    lower_confidence = np.array([c0 for c0, c1 in confidence])
     seconds = loading * 60
     ax.plot(seconds, travel_time)
     ax.plot(seconds, upper_confidence, alpha=0.5)

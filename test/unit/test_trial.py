@@ -209,7 +209,7 @@ def two_routes_with_transfer():
     )
 
 
-def test_generate_event_unload_before_transfer(monkeypatch):
+def test_generate_event_unload_before_transfer(monkeypatch, StaticBinomialRng):
     """An unload event should not contain passengers transferring to
     another route."""
     experiment = two_routes_with_transfer()
@@ -224,7 +224,7 @@ def test_generate_event_unload_before_transfer(monkeypatch):
             """Returns the next predetermined uniform random
             variable."""
             return next(self.outcomes)
-    monkeypatch.setattr(trial, 'rng', FixedOutcome([0.4, 0.6]))
+    monkeypatch.setattr(trial, 'rng', StaticBinomialRng())
     bus = Bus(0, 0, 10)
     bus.state = 'unload'
     bus.stop = 1
@@ -267,7 +267,7 @@ def test_generate_event_transfer():
 
 
 def test_generate_second_event_transfer():
-    """The duration of a transfer event should include time spent by
+    """The duration of a transfer event should not include time spent by
     passengers waiting from an earlier transfer."""
     experiment = two_routes_with_transfer()
     trial = Trial(experiment)
@@ -285,11 +285,92 @@ def test_generate_second_event_transfer():
     event = trial.generate_event(bus2)
     expected = Event(
         time=20,
-        dur=6/2,  # wait time of all waiting transfers / num transfers
+        dur=1,
         etype='transfer',
         route=0,
         stop=1,
         busid=15,
         passengers=0,
         waiting=2)
+    assert event == expected
+
+
+@pytest.fixture
+def two_routes_with_transfer_experiment():
+    """A system with two binary routes, with fixed passenger rates and
+    loading times, and a transfer from route 0 to route 1."""
+    return fb.experiments.Experiment(
+        routes=fb.experiments.Routes(
+            [2, 2],
+            distance=[[1, 0], [2, 0]],
+            traffic=fb.randomvar.Fixed(1),
+            demand_loading=fb.randomvar.FixedAlternating(
+                [[[1, 0], [0, 0]], [[1, 0], [0, 0]]]),
+            demand_unloading=fb.randomvar.Fixed([[0, 2], [0, 2]]),
+            transfers=[(0, 1, 1, 0, 1),]),
+        time_loading=fb.randomvar.Fixed(1),
+        time_unloading=fb.randomvar.Fixed(1),
+        schedule=[[10, 15], [10, 20]],
+        headers=['waiting-time', 'loading-time', 'moving-time',
+                 'holding-time', 'total-passengers']
+    )
+
+
+@pytest.fixture
+def transfer_trial(two_routes_with_transfer_experiment):
+    return Trial(two_routes_with_transfer_experiment)
+
+
+def test_wait_clears_transfer(transfer_trial, monkeypatch):
+    """A wait event should absorb any passengers waiting from a
+    transfer."""
+    trial = transfer_trial
+    # don't generate any new passengers
+    monkeypatch.setattr(trial.experiment._routes, 'demand_loading',
+                        fb.randomvar.Fixed(0))
+    bus = Bus(1, 0, 10, state='wait')
+    transfer, *_ = trial.experiment.get_transfers_to(1, 0)
+    transfer.waiting = 1
+    transfer.last_time = 8
+    event = trial.generate_event(bus)
+    expected = Event(10, 2, 'wait', 1, 0, 10, 0, 1)
+    assert event == expected
+    assert transfer.waiting == 0
+
+
+@pytest.mark.parametrize(['buses', 'expected',],
+                         [([Bus(0, 1, 5, passengers=2, state='unload'),
+                            Bus(1, 0, 10, passengers=0, state='unload')],
+                           Event(12, 0, 'wait', 1, 0, 10, 2)),
+                          ([Bus(0, 1, 5, passengers=2, state='unload'),
+                            Bus(0, 1, 10, passengers=2, state='unload'),
+                            Bus(1, 0, 15, passengers=0, state='unload')],
+                           Event(18, 0, 'wait', 1, 0, 15, 3))])
+def test_load_from_transfer(monkeypatch, StaticBinomialRng, transfer_trial, buses, expected):
+    """A bus should load passengers waiting after a transfer, as well as
+    passengers starting at a given stop."""
+    monkeypatch.setattr(transfer_trial, 'rng', StaticBinomialRng())
+    for bus in buses:
+        while bus.state != 'depart':
+            event = transfer_trial.generate_event(bus)
+            print(event)
+    assert event == expected
+
+
+@pytest.mark.parametrize(['waiting', 'last_time'],
+                         [(1, 8),
+                          (2, 8),
+                          (2, 7)])
+@pytest.mark.parametrize('bus_passengers', [0, 1, 2])
+def test_transfer_wait(transfer_trial, waiting, last_time,
+                       bus_passengers):
+    """Passengers already waiting from a transfer should have their wait
+    time recorded between transfer events."""
+    bus = Bus(0, 1, 10, state='unload', passengers=bus_passengers)
+    transfer, *_ = transfer_trial.experiment.get_transfers(bus.route, bus.stop)
+    transfer.waiting, transfer.last_time = waiting, last_time
+    transfer_trial.generate_event(bus)
+    event = transfer_trial.generate_event(bus)
+    expected = Event(bus.time, bus.time - last_time, 'transfer_wait',
+                     0, 1, 10, bus.passengers, waiting)
     assert event == expected

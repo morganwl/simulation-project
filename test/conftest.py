@@ -39,3 +39,15 @@ def ReturnFrom():
             except StopIteration:
                 return None
     return ReturnFrom_
+
+
+@pytest.fixture
+def StaticBinomialRng():
+    class StaticBinomialRng_:
+        """A random number generator with a binomial method that always
+        returns the expected value."""
+
+        def binomial(self, n, p):
+            """Return expected value of a given binomial rv."""
+            return int(n * p)
+    return StaticBinomialRng_

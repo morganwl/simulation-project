@@ -217,7 +217,7 @@ def test_traffic_daily_scale(time, time_func, ReturnFrom):
                            daily_func=daily_scale_func)
     results = []
     for _ in daily_scales:
-        results.append(np.mean([traffic(i, 0, time) for i in range(250)]))
+        results.append(np.mean([traffic(i, 0, time) for i in range(500)]))
         traffic.reset()
     assert results == approx([(1 + time_func(time)) ** ds
                               for ds in daily_scales], rel=0.1)
