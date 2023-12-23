@@ -264,6 +264,10 @@ class Experiment:
     def unload_pct(self):
         return self._routes.unload_pct
 
+    @property
+    def transfers(self):
+        return self._routes.transfers
+
     def _init_transfer_rates(self):
         for t in self._routes.transfers:
             t.p = t.rate / self.demand_unloading(t.fr_route, t.fr_stop)

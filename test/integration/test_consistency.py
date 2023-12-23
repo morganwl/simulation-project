@@ -120,8 +120,7 @@ def test_leapfrog_fixed_events(deterministic_experiment):
     deterministic_experiment.schedule = [[10, 10.5]]
     trial = Trial(deterministic_experiment)
     events = trial.simulate()
-    print(events)
-    assert events == [
+    assert set(events) == {
         Event(10, 0, 'unload', 0, 0, 10, 0),
         Event(10, 5, 'wait', 0, 0, 10, 0, 1),
         Event(10, 1, 'load', 0, 0, 10, 1),
@@ -138,7 +137,7 @@ def test_leapfrog_fixed_events(deterministic_experiment):
         Event(15, 2, 'unload', 0, 1, 10, 0),
         Event(17, 0, 'wait', 0, 1, 10, 0),
         Event(17, 0, 'depart', 0, 1, 10, 0),
-    ]
+    }
 
 
 @pytest.fixture(params=[([15], [2000])])

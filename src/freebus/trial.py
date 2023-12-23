@@ -52,16 +52,36 @@ class Trial:
     def simulate(self):
         """Returns a list of simulated events."""
         events = []
-        queue = []
+        # queue = []
+        routes = []
+        transfers = {(t.fr_route, t.fr_stop) for t
+                     in self.experiment.transfers}
+        transfers.update({(t.to_route, t.to_stop) for t
+                          in self.experiment.transfers})
         for i, route in enumerate(self.experiment.schedule):
+            buses = []
             for bus in route:
-                heappush(queue, Bus(i, 0, bus))
-        while queue:
-            bus = heappop(queue)
-            event = self.generate_event(bus)
-            events.append(event)
-            if bus.active:
-                heappush(queue, bus)
+                heappush(buses, Bus(i, 0, bus))
+            heappush(routes, (buses[0], buses))
+        while routes:
+            _, buses = routes[0]
+            while buses:
+                bus = buses[0]
+                while bus.active:
+                    event = self.generate_event(bus)
+                    events.append(event)
+                    if bus.state in ['wait', 'transfer_wait']:
+                        break
+                if bus.active:
+                    heapreplace(buses, bus)
+                else:
+                    heappop(buses)
+                if (bus.route, bus.stop) in transfers:
+                    break
+            if buses:
+                heapreplace(routes, (buses[0], buses))
+            else:
+                heappop(routes)
         return events
 
     def generate_event(self, bus):
