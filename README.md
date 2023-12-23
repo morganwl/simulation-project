@@ -68,9 +68,9 @@ Our overall model makes the following assumptions and simplifications:
       - [ ] tweak minimum between shorter and longer
       - [ ] think about the area of middle 50%?
   - [X] one more bus line with transfers
-  - [ ] rework traffic decay model
-  - [ ] generate schedule from parameters
-  - [ ] non-uniform rate for each stop
-  - [ ] fix unloading rate percentage calculations
+  - [X] rework traffic decay model
+  - [X] generate schedule from parameters
+  - [X] non-uniform rate for each stop
+  - [X] fix unloading rate percentage calculations
   - [ ] plot bus line variances
   - [ ] scheduled departure time and intermediate stops

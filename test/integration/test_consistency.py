@@ -139,3 +139,68 @@ def test_leapfrog_fixed_events(deterministic_experiment):
         Event(17, 0, 'wait', 0, 1, 10, 0),
         Event(17, 0, 'depart', 0, 1, 10, 0),
     ]
+
+
+@pytest.fixture(params=[([15], [2000])])
+def experiment(request):
+    routes, rates = request.param
+    loading_rates, unloading_rates = fb.experiments.randomize_routes(
+        routes, rates)
+    return fb.experiments.Experiment(
+        fb.experiments.Routes(
+            routes=routes,
+            distance=[[.2] * r for r in routes],
+            traffic=Fixed(1),
+            demand_loading=fb.randomvar.TimeVarPois(
+                loading_rates,
+                time_func=fb.randomvar.SumOfDistributionKernel(
+                    [fb.randomvar.BetaTimeFunc(2, 2)],),
+                seed=1
+            ),
+            demand_unloading=Fixed(unloading_rates),
+        ),
+        time_loading=Fixed(0.05),
+        time_unloading=Fixed(0.05),
+        headers=fb.experiments.Headers.SIMPLE,
+        schedule=[[20*i for i in range(24*3)]],
+        speed=12/60)
+
+
+def test_loading_rates(experiment):
+    """Test that experimental loading rates conform to expected
+    values."""
+    trials = 15
+    stops = np.zeros((len(experiment.routes),
+                      max(experiment.routes),
+                      trials))
+    waiting = np.zeros((len(experiment.routes),
+                        max(experiment.routes)),
+                       )
+    for i in range(trials):
+        for e in fb.trial.simulate(experiment):
+            if e.etype == 'wait':
+                waiting[e.route][e.stop] = e.waiting
+            if e.etype == 'load':
+                stops[e.route][e.stop][i] += (
+                    waiting[e.route][e.stop] - e.waiting)
+    assert np.mean(stops, axis=2) == pytest.approx(
+        experiment.demand_loading.mean, rel=0.1)
+
+
+def test_unloading_rates(experiment):
+    """Test that experimental unloading rates conform to expected
+    values."""
+    trials = 10
+    stops = np.zeros((len(experiment.routes),
+                      max(experiment.routes),
+                      trials))
+    for i in range(trials):
+        riding = {}
+        for e in fb.trial.simulate(experiment):
+            if e.etype == 'depart':
+                riding[(e.route, e.busid)] = e.passengers
+            if e.etype == 'unload':
+                stops[e.route][e.stop][i] += int(
+                     riding.get((e.route, e.busid), 0) - e.passengers)
+    assert np.mean(stops, axis=2) == pytest.approx(
+        experiment.demand_unloading.mean, rel=0.1)

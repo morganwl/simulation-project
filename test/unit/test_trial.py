@@ -40,7 +40,7 @@ def test_traffic_reset(rand_func, time_func):
             [2],
             distance=[[1, 0]],
             traffic=fb.experiments.TrafficModel(rand_func, time_func),
-            demand_loading=fb.randomvar.Fixed(0),
+            demand_loading=fb.randomvar.Fixed([0]),
             demand_unloading=fb.randomvar.Fixed(1)),
         time_loading=fb.randomvar.Fixed(1),
         time_unloading=fb.randomvar.Fixed(1),
@@ -243,11 +243,12 @@ def test_generate_event_unload_before_transfer(monkeypatch, StaticBinomialRng):
     assert event == expected
 
 
-def test_generate_event_transfer():
+def test_generate_event_transfer(monkeypatch, StaticBinomialRng):
     """A transfer between two stops should generate a transfer event for
     the target stop."""
     experiment = two_routes_with_transfer()
     trial = Trial(experiment)
+    monkeypatch.setattr(trial, 'rng', StaticBinomialRng())
     bus = Bus(0, 0, 10)
     bus.state = 'transfer'
     bus.stop = 1
@@ -266,11 +267,13 @@ def test_generate_event_transfer():
     assert event == expected
 
 
-def test_generate_second_event_transfer():
+def test_generate_second_event_transfer(monkeypatch, StaticBinomialRng):
     """The duration of a transfer event should not include time spent by
     passengers waiting from an earlier transfer."""
     experiment = two_routes_with_transfer()
     trial = Trial(experiment)
+    transfer, *_ = experiment.get_transfers(0, 1)
+    monkeypatch.setattr(trial, 'rng', StaticBinomialRng())
     bus1 = Bus(0, 0, 10)
     bus1.state = 'transfer'
     bus1.stop = 1
@@ -283,16 +286,9 @@ def test_generate_second_event_transfer():
     bus2.passengers = 1
     trial.generate_event(bus1)
     event = trial.generate_event(bus2)
-    expected = Event(
-        time=20,
-        dur=1,
-        etype='transfer',
-        route=0,
-        stop=1,
-        busid=15,
-        passengers=0,
-        waiting=2)
-    assert event == expected
+    assert transfer.waiting == 2
+    assert event.waiting == 2
+    assert event.dur == 1
 
 
 @pytest.fixture

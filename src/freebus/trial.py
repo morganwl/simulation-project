@@ -85,7 +85,7 @@ class Trial:
         """Generate a depart event."""
         t = (self.experiment.distance[bus.route][bus.stop]
              / self.experiment.speed
-             / self.experiment.traffic(bus.route, bus.stop, bus.time))
+             * self.experiment.traffic(bus.route, bus.stop, bus.time))
         event = Event(bus.time, t, 'depart', bus.route, bus.stop,
                       bus.id, bus.passengers)
         bus.time += t
@@ -148,17 +148,10 @@ class Trial:
 
     def generate_event_unload(self, bus):
         """Generates an unload event."""
-        rate = self.experiment.demand_unloading.expected(bus.route,
-                                                         bus.stop,
-                                                         bus.time)
-        total_rate = sum(self.experiment.demand_unloading.expected(
-            bus.route, s, bus.time)
-                         for s in range(bus.stop,
-                                        self.experiment.routes[bus.route]))
+        p = self.experiment.unload_pct[bus.route][bus.stop]
         if transfers := self.experiment.get_transfers(bus.route, bus.stop):
-            rate -= sum(t.rate for t in transfers)
-        rate_pct = rate / total_rate
-        n = self.rng.binomial(bus.passengers, rate_pct)
+            p -= sum(t.p for t in transfers)
+        n = self.rng.binomial(bus.passengers, p)
         t = sum(self.experiment.time_unloading(bus.passengers - i)
                 for i in range(n))
         bus.passengers -= n
@@ -192,13 +185,7 @@ class Trial:
             bus.transfers = deque(self.experiment.get_transfers(
                 bus.route, bus.stop))
         transfer = bus.transfers.popleft()
-        rate_pct = transfer.rate / (sum(
-            self.experiment.demand_unloading.expected(bus.route, s, bus.time)
-            for s in range(bus.stop+1,
-                           self.experiment.routes[bus.route])) +
-                                    transfer.rate)
-        assert rate_pct >= 0
-        n = self.rng.binomial(bus.passengers, rate_pct)
+        n = self.rng.binomial(bus.passengers, transfer.p)
         if n:
             t = (sum(self.experiment.time_unloading(bus.passengers - i)
                      for i in range(n)))

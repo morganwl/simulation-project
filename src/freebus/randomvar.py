@@ -63,19 +63,19 @@ class RandomVar:
 class Fixed(RandomVar):
     """A fixed variable returns the same value for any number of
     inputs."""
-    def __init__(self, val):
-        self.val = np.array(val)
-        self._dim = len(self.val.shape)
+    def __init__(self, mean):
+        self.mean = np.array(mean)
+        self._dim = len(self.mean.shape)
 
     def __call__(self, *args, scale=1, n=None):
-        result = self.val[tuple(args[:self._dim])]
+        result = self.mean[tuple(args[:self._dim])]
         if n is not None:
             return np.ones(n) * result
         return result
 
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
-        return self.val[tuple(args[:self._dim])]
+        return self.mean[tuple(args[:self._dim])]
 
     def sum_arrivals(self, n, t, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
@@ -85,29 +85,29 @@ class Fixed(RandomVar):
 @auto_repr
 class FixedAlternating(RandomVar):
     """Returns alternating fixed values."""
-    def __init__(self, val):
-        self.val = np.array(val)
-        self._dim = len(self.val.shape) - 1
+    def __init__(self, mean):
+        self.mean = np.array(mean)
+        self._dim = len(self.mean.shape) - 1
 
     def __call__(self, *args, scale=1, n=None):
         if n is not None:
             return np.fromiter(
                 (self(*args) for _ in range(n)),
                 dtype=np.float64)
-        values = self.val[tuple(args[:self._dim])]
-        self.val[tuple(args[:self._dim])] = np.roll(values, 1)
+        values = self.mean[tuple(args[:self._dim])]
+        self.mean[tuple(args[:self._dim])] = np.roll(values, 1)
         return values[-1]
 
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
-        return np.mean(self.val[tuple(args[:self._dim])])
+        return np.mean(self.mean[tuple(args[:self._dim])])
 
     def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
         return sum(i * scale/(n+1) for i in range(1, n+1))
 
     def __repr__(self):
-        return (f'{type(self).__name__}({np.array_str(self.val)})'
+        return (f'{type(self).__name__}({np.array_str(self.mean)})'
                 .replace('\n', ''))
 
 
@@ -155,13 +155,14 @@ class Pois(RandomVar):
 @auto_repr
 class TimeVarPois(RandomVar):
     """A Poisson random variable conditioned on some function f(time)."""
-    def __init__(self, mean, time_func, daily_func=None):
+    def __init__(self, mean, time_func, daily_func=None, seed=None):
         self.mean = np.array(mean)
         self.time_func = time_func
         self.daily_func = daily_func
+        self.seed = seed
         self._daily_scale = daily_func() if daily_func else 1
         self._dim = len(self.mean.shape)
-        self._rng = np.random.default_rng()
+        self._rng = np.random.default_rng(seed=seed)
 
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
@@ -240,9 +241,11 @@ class Beta:
 @auto_repr
 class Gamma(RandomVar):
     """Random variable matching the gamma distribution."""
-    def __init__(self, k, theta):
+    def __init__(self, k, theta, seed=None):
         self.k, self.theta = k, theta
-        self._rng = np.random.default_rng()
+        rng = np.random.default_rng(seed=seed)
+        self.seed = seed
+        self._rng = rng
 
     def expected(self, *_):
         return self.k * self.theta
@@ -299,17 +302,19 @@ class SumOfDistributionKernel:
     def __init__(self, funcs: list):
         self.funcs = funcs
         self._area = np.array([f.area for f in funcs])
-
+        self._arrival_cache = np.zeros(4)
 
     @lru_cache
     def __call__(self, t, scale=1):
-        return sum(f(t) - f(t - scale) for f in self.funcs)
+        return np.sum([f(t) - f(t - scale) for f in self.funcs])
 
     @lru_cache
     def _cdf(self, t):
         return sum(f(t) for f in self.funcs)
 
     def sum_arrivals(self, alpha, beta, n):
+        if (self._arrival_cache[:3] == [alpha, beta, n]).all():
+            return self._arrival_cache[3]
         p_alpha = self._cdf(alpha)
         p = self._cdf(beta) - p_alpha
 
@@ -365,6 +370,9 @@ class GammaTimeFunc:
     def __call__(self, x):
         return scipy.stats.gamma.cdf(x, self.k, self.theta) * self.area
 
+    def inverse(self, u):
+        return scipy.stats.gamma.ppf(u, self.k, self.theta)
+
 
 @auto_repr
 class BetaTimeFunc:
@@ -399,3 +407,7 @@ class BetaTimeFunc:
         """Returns the correspondin time t for the unscaled probability
         u."""
         return self.scale_output(self._rv.ppf(u))
+
+    def cdf(self, t):
+        """Returns the unscaled cumulative probability for time t."""
+        return self._rv.cdf(self.scale_input(t))

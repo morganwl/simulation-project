@@ -34,6 +34,7 @@ class Transfer:
     rate: float
     waiting: int = 0
     last_time: float = 0
+    p: float = 0
 
 
 @dataclass
@@ -49,6 +50,7 @@ class Routes:
 
     def __post_init__(self):
         self.transfers = [Transfer(*t) for t in self.transfers]
+        self._init_unloading_pct()
 
     def reset(self):
         """Resets any per-trial parameters."""
@@ -57,6 +59,43 @@ class Routes:
                 getattr(self, rv).reset()
             except AttributeError:
                 pass
+
+    def _init_unloading_pct(self):
+        unload_pct = np.zeros((len(self.routes), max(self.routes)))
+        try:
+            lines = enumerate(zip(self.demand_loading.mean,
+                                  self.demand_unloading.mean))
+        except TypeError:
+            lines  = enumerate([(self.demand_loading.expected(i),
+                                 self.demand_unloading.expected(i))
+                                for i in range(len(self.routes))])
+        for i, (loading, unloading) in lines:
+            riding = 0
+            to_ride = np.sum(loading)
+            to_unload = np.sum(unloading)
+            if to_ride != to_unload:
+                unloading = unloading * (to_ride / to_unload)
+                to_unload = to_ride
+            try:
+                stops = enumerate(zip(loading, unloading))
+            except TypeError:
+                stops = enumerate((self.demand_loading.expected(i),
+                                   self.demand_unloading.expected(i))
+                                  for _ in range(self.routes[i]))
+            for j, (on, off) in stops:
+                on = np.sum(on)
+                off = np.sum(off)
+                if off == 0:
+                    p = 0
+                elif riding == 0:
+                    p = 1
+                else:
+                    p = off / riding
+                unload_pct[i][j] = max(0, min(1, p))
+                riding -= off
+                riding += on
+            unload_pct[i][self.routes[i] - 1] == 1
+        self.unload_pct = unload_pct
 
 
 @dataclass
@@ -99,11 +138,13 @@ class TrafficModel:
         for offset in [-1, 0, 1]:
             earlier, later = self.find_neighbors(route, stop + offset, t)
             if earlier:
-                w = (.5 - abs(offset)/4) * .9**(t - earlier.time + 2 * abs(offset))
+                w = (.5 - abs(offset)/4) * .9**(t - earlier.time + 2 *
+                                                abs(offset))
                 weight += w
                 val += w * earlier.val
             if later:
-                w = (.5 - abs(offset)/4) * .9**(later.time - t + 2 * abs(offset))
+                w = (.5 - abs(offset)/4) * .9**(later.time - t + 2 *
+                                                abs(offset))
                 weight += w
                 val += w * later.val
         val += (max((1 - weight), 0) *
@@ -192,6 +233,7 @@ class Experiment:
         self.headers = headers
         self.speed = speed
         self.gather_pert = gather_pert
+        self._init_transfer_rates()
 
     def checksum(self):
         """Returns a crc32 checksum of the experimental parameters as a
@@ -217,6 +259,14 @@ class Experiment:
     @property
     def demand_unloading(self):
         return self._routes.demand_unloading
+
+    @property
+    def unload_pct(self):
+        return self._routes.unload_pct
+
+    def _init_transfer_rates(self):
+        for t in self._routes.transfers:
+            t.p = t.rate / self.demand_unloading(t.fr_route, t.fr_stop)
 
     def get_transfers(self, route, stop):
         """Returns a list of all transfers from route, stop."""
@@ -269,6 +319,8 @@ def b35_schedule():
 
 def get_builtin_routes():
     """Returns a dictionary of built-in routes."""
+    brooklyn_loading, brooklyn_unloading = randomize_routes([48, 42],
+                                                            [12408, 11256])
     return {
         'two-stop-fixed': Routes(
             routes=[2],
@@ -326,17 +378,19 @@ def get_builtin_routes():
             routes=[48, 42],
             distance=[[.2] * 47 + [0], [.3] * 41 + [0]],
             traffic=TrafficModel(Gamma(4, .25),
-                                 SumOf([BetaTimeFunc(10, 5, pdf=True),
-                                        BetaTimeFunc(10, 15, pdf=True)]),
+                                 SumOf([BetaTimeFunc(7.85, 3.185,
+                                                     area=1.2,
+                                                     pdf=True),
+                                        BetaTimeFunc(8.75, 15, area=0.8,
+                                                     pdf=True)]),
                                  daily_func=Beta(4, 2.5, bias=.5)),
-            demand_loading=TimeVarPois([[264] * 47 + [0],
-                                        [268] * 41 + [0] * 7],
+            demand_loading=TimeVarPois(brooklyn_loading,
                                        SumOfDistributionKernel([
                                            BetaTimeFunc(4, 2, area=0.5),
                                            BetaTimeFunc(6, 14, area=0.5),
                                        ]),
                                        daily_func=Beta(5, 5, bias=.5)),
-            demand_unloading=Fixed(([[0] + [1] * 47, [0] + [1] * 41 + [0] * 6])),
+            demand_unloading=Fixed(brooklyn_unloading),
             transfers=[(0,21,1,17,.7), (1,17,0,21,.75)]
         ),
     }
@@ -440,6 +494,39 @@ class CapacityScale:
 
     def __call__(self, t, passengers):
         return t + max(0, 0.01*(passengers - 20))
+
+
+def randomize_routes(routes, daily_rates, seed=1,
+                     load_shape=(1.25, 1.5),
+                     unload_shape=(1.5, 1.25)):
+    """Randomly distribute passenger demand."""
+    rng = np.random.default_rng(seed=seed)
+    width = np.max(routes)
+    rate_loading = np.zeros((len(routes), width),
+                            dtype=np.float64)
+    for i, (num, rate) in enumerate(zip(routes, daily_rates)):
+        rate_loading[i] = np.pad(randomize_stops(num - 1, rate, *load_shape, rng),
+                                 (0, width - num + 1))
+    rate_unloading = np.zeros((len(routes), width),
+                              dtype=np.float64)
+    for i, (num, rate) in enumerate(zip(routes, daily_rates)):
+        rate_unloading[i, 1:] = np.pad(randomize_stops(num - 1, rate,
+                                                       *unload_shape, rng),
+                                       (0, width - num))
+    return rate_loading, rate_unloading
+
+
+def randomize_stops(num, total, a, b, rng, minimum=3):
+    """Create an array of num stops summing to rate."""
+    rates = minimum * np.ones(num, dtype=np.float64)
+    total -= minimum * num
+    while total > 0:
+        stop = int(rng.beta(a, b) * num)
+        count = min(rng.integers(1, 10), total)
+        rates[stop] += count
+        total -= count
+    assert total == 0
+    return rates
 
 
 capacity_scale = CapacityScale()

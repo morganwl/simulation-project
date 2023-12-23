@@ -1,5 +1,6 @@
 """Shared testing fixtures."""
 
+import numpy as np
 import pytest
 
 from freebus.experiments import Experiment, Routes, TrafficModel
@@ -48,6 +49,7 @@ def StaticBinomialRng():
         returns the expected value."""
 
         def binomial(self, n, p):
-            """Return expected value of a given binomial rv."""
-            return int(n * p)
+            """Return expected value of a given binomial rv, always
+            rounding up from .5"""
+            return int(np.round(n * (p + 1e-10)))
     return StaticBinomialRng_

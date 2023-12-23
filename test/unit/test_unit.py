@@ -3,6 +3,8 @@
 import csv
 
 import numpy as np
+import pytest
+from pytest import approx
 
 import freebus as fb
 from freebus.types import Event
@@ -126,3 +128,31 @@ def test_confidence_interval():
     assert (intervals[0] < intervals[1]).all()
     assert (intervals[1] < intervals[2]).all()
     assert (intervals[:, 0] <= intervals[:, 1]).all()
+
+
+@pytest.mark.parametrize('routes', [[20, 30],
+                                    [10, 50],
+                                    [45, 45],
+                                    [48, 42],])
+@pytest.mark.parametrize('daily_rates', [[8000, 10000],
+                                         [1000, 5000],
+                                         [12000, 12000],
+                                         [12408, 11256],])
+def test_route_randomize(routes, daily_rates):
+    """Confirm that randomizing a route maintains original passenger
+    load."""
+    rate_loading, rate_unloading = (
+        fb.experiments.randomize_routes(routes, daily_rates))
+    assert (np.sum(rate_loading, axis=1) == daily_rates).all()
+    assert (np.sum(rate_unloading, axis=1) == daily_rates).all()
+    for route, rates in zip(routes, rate_loading):
+        assert (np.array(rates[route-1:]) == 0).all()
+    for route, rates in zip(routes, rate_unloading):
+        assert rates[0] == approx(0)
+        assert (np.array(rates[route:]) == 0).all()
+    for loading, unloading in zip(rate_loading, rate_unloading):
+        passengers = 0
+        for l, u in zip(loading, unloading):
+            passengers -= u
+            assert passengers >= 0
+            passengers += l

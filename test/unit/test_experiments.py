@@ -46,7 +46,7 @@ def test_experiment_repr_poisson():
             [2], [1, 0],
             Fixed(1),
             Pois([[1, 0]]),
-            Pois([[Fixed(0), Fixed(1)]]),),
+            Pois([[0, 1]]),),
         Fixed(1),
         Fixed(1),
         [[0, 10]],
@@ -206,18 +206,18 @@ def test_traffic_model_beta(time, funcs):
 
 
 @pytest.mark.parametrize('time', [60 * 4 * i for i in range(24 // 4)])
-@pytest.mark.parametrize('time_func', [BetaTimeFunc(3, 4, pdf=True)],)
+@pytest.mark.parametrize('time_func', [BetaTimeFunc(3, 6, pdf=True)],)
 def test_traffic_daily_scale(time, time_func, ReturnFrom):
     """A daily scale rv should be generated once per day and scale all
     results for that day exponentially."""
     daily_scales = [.75, 1, 1.25]
     daily_scale_func = ReturnFrom(daily_scales)
-    traffic = TrafficModel(Gamma(10, .1),
+    traffic = TrafficModel(Gamma(20, .05, seed=1),
                            time_func=time_func,
                            daily_func=daily_scale_func)
     results = []
     for _ in daily_scales:
-        results.append(np.mean([traffic(i, 0, time) for i in range(500)]))
+        results.append(np.mean([traffic(i, 0, time) for i in range(2000)]))
         traffic.reset()
     assert results == approx([(1 + time_func(time)) ** ds
                               for ds in daily_scales], rel=0.1)

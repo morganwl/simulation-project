@@ -196,6 +196,7 @@ def test_rv_daily_func(RV, params, mean, time, ReturnFrom):
                              rel=0.1)
 
 
+@pytest.mark.skip(reason='very slow, not essential.')
 def rejection_estimate_poisson_arrivals(alpha, beta, n, rv, num=50):
     """Generate a random variable equal to the sum of arrival times
     (relative to beta), given n arrivals within the interval (alpha,
@@ -247,5 +248,5 @@ def test_time_var_poisson_arrival_times(time, lam, scale, n, func):
         for _ in range(2000)])
     expected = np.mean([
         rejection_estimate_poisson_arrivals(time - scale, time, n, rv)
-        for _ in range(50)])
+        for _ in range(100)])
     assert result == approx(expected, rel=0.1)

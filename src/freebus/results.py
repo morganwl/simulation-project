@@ -94,7 +94,7 @@ def plot_tvl(dataset, cols, name, ax, quantile=.5):
     ax.plot(seconds, travel_time)
     ax.plot(seconds, upper_confidence, alpha=0.5)
     ax.plot(seconds, lower_confidence, alpha=0.5)
-    plot_estimate_line(dataset, cols, ax, loading[3:], travel_time[3:])
+    # plot_estimate_line(dataset, cols, ax, loading[3:], travel_time[3:])
     ax.title.set_text(f'{name}')
 
 
@@ -108,8 +108,9 @@ def plot_estimate_line(dataset, cols, ax, loading, travel_time):
 
 
 def plot_travel_vs_loading(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
+                                 COLS if len(datasets) >= COLS else len(datasets),
+                                 squeeze=False, sharey=True, sharex=True)
     fig.suptitle('Travel vs loading mean')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_tvl(ds, cols, name, ax)
@@ -150,8 +151,11 @@ def plot_pph(dataset, cols, name, ax):
 def plot_travel_times(datasets):
     """Plot the total travel times for one or more datasets
     side-by-side."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
+                                 COLS if len(datasets) > COLS else
+                                 len(datasets),
+                                 squeeze=False, sharey=True,
+                                 sharex=True)
     fig.suptitle('Total Travel Time')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_travel_time(ds, cols, name, ax)
@@ -161,8 +165,10 @@ def plot_travel_times(datasets):
 def plot_passengers_per_hour(datasets):
     """Plot mean passengers per hour for one or more datasets
     side-by-side."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
+                                 COLS if len(datasets) > COLS else
+                                 len(datasets),
+                                 squeeze=False, sharey=True, sharex=True)
     fig.suptitle('Passengers per hour')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_pph(ds, cols, name, ax)
@@ -171,8 +177,9 @@ def plot_passengers_per_hour(datasets):
 
 def plot_traffic_daily(datasets):
     """Plot a histogram of daily traffic volume."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
+                                 COLS if len(datasets) > COLS else len(datasets),
+                                 squeeze=False, sharey=True, sharex=True)
     fig.suptitle('Daily traffic volume')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_traffic(ds, cols, name, ax)
@@ -187,8 +194,9 @@ def plot_traffic(dataset, cols, name, ax):
 
 
 def plot_traffic_per_hour(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
+                                 COLS if len(datasets) > COLS else len(datasets),
+                                 squeeze=False, sharey=True, sharex=True)
     fig.suptitle('Traffic per hour')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_tph(ds, cols, name, ax)
@@ -205,8 +213,9 @@ def plot_tph(dataset, cols, name, ax):
 
 
 def plot_passengers_daily(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, COLS,
-                                 sharey=True, sharex=True)
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
+                                 COLS if len(datasets) > COLS else len(datasets),
+                                 squeeze=False, sharey=True, sharex=True)
     fig.suptitle('Daily passengers')
     for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
         plot_passengers(ds, cols, name, ax)
