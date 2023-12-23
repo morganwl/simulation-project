@@ -22,7 +22,7 @@ def parse_args():
 def get_experiment():
     """Returns the b35 builtin experiment."""
     experiments = freebus.experiments.get_builtin_experiments()
-    return experiments['b35-short']
+    return experiments['brooklyn']
 
 
 def stmt(experiment, n=1):

@@ -33,7 +33,7 @@ Our overall model makes the following assumptions and simplifications:
   - [X] report simulation parameters
     - [X] test
     - [X] feature
-- [-] 0.2.0 features
+- [X] 0.2.0 features
   - [X] non-deterministic trials
   - [X] test bus leapfrog events
   - [X] print results as distribution
@@ -46,23 +46,23 @@ Our overall model makes the following assumptions and simplifications:
     - [X] runtime per trial
     - [X] memory usage per trial (via memray)
     - [-] rns used per trial
-- [ ] 0.3.0 features
+- [X] 0.3.0 features
   - [X] multiple lines
     - [ ] lines should have separate queues
   - [X] transfers
     - [ ] in large system
     - [ ] properly switch between queues to handle transfers
   - [X] random daily scaling of traffic and passenger rates
-- [ ] 0.4.0 improved reporting
+- [X] 0.4.0 improved reporting
   - [X] fix plotting of more than two experiments
   - [X] find way to demonstrate cascading effect
   - [X] generate plot of the PERT distribution
-  - [ ] collect events from each trial directly (compressed?)
+  - [-] collect events from each trial directly (compressed?)
   - [X] plot traffic
   - [X] automatically detect current experiment hash and appropriate
   - [X] wide range of Pert distribution samples
     results file
-- [ ] 0.5.0 submission-ready
+- [X] 0.5.0 submission-ready
   - [X] fix passenger inter-arrival times
       - [ ] include lamb in recorded data
       - [ ] tweak minimum between shorter and longer
@@ -72,5 +72,12 @@ Our overall model makes the following assumptions and simplifications:
   - [X] generate schedule from parameters
   - [X] non-uniform rate for each stop
   - [X] fix unloading rate percentage calculations
-  - [ ] plot bus line variances
-  - [ ] scheduled departure time and intermediate stops
+  - [-] plot bus line variances
+  - [-] scheduled departure time and intermediate stops
+- [ ] 0.6.0 algorithmic efficieny
+  - [ ] only visit priority queue before wait and wait-transfer events
+  - [ ] split lines into separate queues and only break at stops with a
+    transfer
+  - [ ] balance traffic tree on insertions
+  - [ ] analytically solve arrival sums at TimeVarPois level
+  
