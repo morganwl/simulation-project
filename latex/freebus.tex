@@ -1,7 +1,136 @@
 \documentclass[12pt]{article}
 \usepackage{amsfonts, amsmath, fancyhdr}
+
 \pagestyle{fancy}
 
+\topmargin = -0.8 in
+\oddsidemargin = 0.0 in
+\evensidemargin = 0.0 in
+\textheight = 9 in
+\textwidth = 6.5 in
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{result}{Result}
+\newtheorem{definition}{Defintion}
+
+\title{}
+\author{Morgan Wajda-Levie}
+
 \begin{document}
+
+\maketitle
+
+\section{Executive Summary}
+
+The New York City bus network is a vital component of the city's public
+transit system. Any change in service and travel times is felt by over a
+million daily riders, improving their quality of life and productivity, and
+making public transit a more attractive alternative to environmentally
+hazardous private automobiles. We asked the question, what if we could make
+our buses faster by eliminating a costly loading bottleneck at every stop?
+Through a simulated model of two Brooklyn bus lines, we show that removing
+on-bus fare collection could save as much as \textbf{one hour} of average
+travel time for each bus trip.
+
+\section{Introduction and Background}
+
+In 2019, before the Covid-19 pandemic, New York City Transit provided, on
+average, more than 1.77 million bus rides every weekday. While ridership fell
+in 2020, 2022 ridership was measured at 1,094,415 daily rides\cite{mta}.
+Shortening the average bus trip by one minute would, collectively save
+181,000 hours every day.
+
+Improvements to bus infrastructure have other benefits. If bus travel becomes
+faster, more citizens might choose a city bus over a taxi or personal car,
+particularly when traveling between parts of the city not served by a subway
+corridor. Fewer low-occupancy vehicles relieves traffic congestion, lessens
+wear-and-tear on crumbling infrastructure, frees up curbside space for other
+uses, and reduces harmful emissions that threaten our health and hasten
+climate disaster.
+
+While many improvements to bus service require additional infrastructure,
+we propose an improvement which could be made, immediately, without any
+modifications to the streets or bus fleet in any way. By eliminating fare
+collection, which requires each passenger to individually purchase a ride
+while a busful of passengers wait, buses can spend less time idling by the
+side of the road and more time getting passengers to their destinations.
+
+While one could attempt to estimate shorter loading times statistically, we
+wanted to explore the impact that faster boarding might have on other aspects
+of system performance. We performed a study on a small simulation of two bus
+lines, measured over an entire day, modeled after the Brooklyn B41 and B35
+lines. Considerations were made for variations in road traffic, peak and
+off-peak passenger rates, and time spent waiting for buses, both at the start
+of the trip and during transfers between lines.
+
+Boarding and fare collection times were measured through a combination of
+manual experiment and daily observation of the two bus lines under study, both
+on the street and inside of the buses. Considerations were taken for the use
+of multiple doors, different payment methods, the impact of bus capacity on
+boarding times, and non-fare related events such as the deployment of
+accessibility ramps.
+
+\section{Conclusions and Recommendations}
+
+Over the course of \textbf{some number} of trials, our experiment showed a decrease
+in travel time of 28 minutes, when the mean boarding time was decreased by 20
+seconds per passenger. However, with a more conservative estimate, based on
+informal observations, we prefer to predict a 10 second decrease in per
+passenger boarding time, saving 19 minutes of travel time per trip, a 9\%
+improvement over observed travel times. With 1 million daily bus trips, this
+would result in the recovery of 315,000 hours every day.
+
+While we recommend this improvement without reservation, we had hoped to
+observe more secondary improvements. Instead, we observed a strictly linear
+growth in trip time from a mean of 2 seconds boarding time all the way to 22
+seconds. This suggests that time spent waiting for passengers does not
+contribute to later delays.
+
+\section{Methodology}
+
+We measured trip time from the moment the passenger arrived at the bus stop to
+the moment the bus arrived at that passenger's destination. (Because changes
+to disembarking time were not under review, we only credited unloading time to
+passengers \emph{on} the bus, not those in the process of leaving.)
+
+In constructing our model, we made a number of simplifying assumptions.
+\begin{itemize}
+    \item Passengers arrive at stops independently of each other, in
+        a non-homogeneous Poisson process.
+    \item Arrival rates are dependent on time of day, according to a
+        deterministic function of time. In other words, peak and off-peak
+        times occur at the same time every day. (Though their magnitude is
+        stochastic.)
+    \item Individual stops have distinct rates for loading and unloading, but
+        all stops are subject to the same peak and off-peak hours.
+    \item All passengers on a bus are equally likely to unload at a given
+        stop, regardless of where their trip started.
+    \item Bus travel times are subject to traffic conditions, but traffic
+        conditions are independent of bus behavior.
+    \item Buses are assumed to operate without accident or otherwise disabling
+        incident.
+    \item Buses are only scheduled at the beginning of their route.
+\end{itemize}
+
+For some $i$th passenger, this trip time is measured as the sum
+\[
+    w_i + l_i + b_i
+\].
+
+where $w, l, b$ are waiting time, boarding time, and on-bus time,
+respectively.
+
+$w_i$ is the difference of the time that the $i$th passenger arrives at stop
+$s$, from the time that the bus arrives at stop $s$. The passengers arrival
+time, in turn, is conditioned upon the arrival rate, $\lambda_{s,t}$, for a
+stop $s$ at time $t$, or, more precisely, over the interval $t_\alpha,
+t_\beta$, during which a passenger could have arrived. The bus's arrival time
+is conditioned upon the time the bus left stop $s-1$ and traffic conditions
+beteen $s-1$ and $s$.
+
+The departure of a bus from stop $s-1$ is dependent on the time spent loading
+and unloading passengers at stop $s-1$, and the bus's arrival time at $s-1$.
+
+\section{General Discussion}
 
 \end{document}
