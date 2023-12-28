@@ -196,7 +196,6 @@ def test_rv_daily_func(RV, params, mean, time, ReturnFrom):
                              rel=0.1)
 
 
-@pytest.mark.skip(reason='very slow, not essential.')
 def rejection_estimate_poisson_arrivals(alpha, beta, n, rv, num=50):
     """Generate a random variable equal to the sum of arrival times
     (relative to beta), given n arrivals within the interval (alpha,
@@ -212,6 +211,7 @@ def rejection_estimate_poisson_arrivals(alpha, beta, n, rv, num=50):
     return np.sum((beta - times) * k)
 
 
+@pytest.mark.skip(reason='very slow, not essential.')
 @pytest.mark.parametrize(['lam', 'scale', 'n'],
                          [(1, 1, 0),
                           (1, 1, 1),
@@ -242,7 +242,7 @@ def test_rejection_estimate_poisson_arrivals(time, lam, scale, n):
 def test_time_var_poisson_arrival_times(time, lam, scale, n, func):
     """Test that a time variable poisson process accurately distributes
     arrival times across an interval."""
-    rv = TimeVarPois(lam, func)
+    rv = TimeVarPois(lam, func, seed=1)
     result = np.mean([
         rv.sum_arrivals(n, scale, time=time)
         for _ in range(2000)])
@@ -250,3 +250,29 @@ def test_time_var_poisson_arrival_times(time, lam, scale, n, func):
         rejection_estimate_poisson_arrivals(time - scale, time, n, rv)
         for _ in range(100)])
     assert result == approx(expected, rel=0.1)
+
+
+@pytest.mark.parametrize(['time', 'lam', 'scale', 'n'],
+                         [(120, 540, 90, 2),
+                          (420, 220, 30, 10),
+                          (300, 75, 30, 2),
+                          (800, 215, 15, 2)])
+@pytest.mark.parametrize('func',
+                         [SumOfDistributionKernel([
+                             BetaTimeFunc(6, 14, area=0.5),
+                             BetaTimeFunc(4, 2, area=0.5),])],
+                         )
+def test_analytic_poisson_arrival_times(time, lam, scale, n, func):
+    """Test that the analytic arrival times produce comparable results
+    to the gradient descent times."""
+    rv = TimeVarPois(lam, func, seed=1)
+    result = []
+    while len(result) < 1000:
+        if rv(time, scale=scale) != n:
+            continue
+        result.append(rv.sum_arrivals(n, scale, time=time))
+    result = np.mean(result)
+    expected = np.mean([
+        rv.sum_arrivals(n, scale, time=time)
+        for _ in range(1000)])
+    assert result == approx(expected, rel=0.05)

@@ -163,6 +163,7 @@ class TimeVarPois(RandomVar):
         self._daily_scale = daily_func() if daily_func else 1
         self._dim = len(self.mean.shape)
         self._rng = np.random.default_rng(seed=seed)
+        self._arrivals = [None, None, None, None]
 
     def expected(self, *args):
         """Returns the expected value for any given parameters."""
@@ -182,14 +183,30 @@ class TimeVarPois(RandomVar):
             mean = mean(*args[self._dim:])
         except TypeError:
             pass
+
+        if hasattr(self.time_func, 'components'):
+            time_coefs = self.time_func.components(t, scale=scale)
+            if n:
+                n = (n, len(time_coefs))
+            components = self._rng.poisson(time_coefs
+                                           * self._daily_scale
+                                           * mean,
+                                           size=n)
+            result = np.sum(components, axis=-1)
+            self._arrivals = [result, scale, t,
+                              self.time_func.arrival_components(
+                                  t - scale, t, components,
+                                  time_coefs)]
+            return result
         time_coef = self.time_func(t, scale=scale)
-        assert scale >= 0
-        assert t >= 0
-        assert time_coef >= 0
         return self._rng.poisson(time_coef * self._daily_scale * mean, size=n)
 
     def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
+        if self._arrivals[:3] == [n, scale, time]:
+            result = self._arrivals[-1]
+            self._arrivals = [None, None, None, None]
+            return result
         return self.time_func.sum_arrivals(time - scale, time, n)
 
     def reset(self):
@@ -299,14 +316,29 @@ class SumOfFunctionKernel:
 class SumOfDistributionKernel:
     """A kernel that returns the sum of of a list of cumulative
     distribution functions over time t."""
-    def __init__(self, funcs: list):
+    def __init__(self, funcs: list, seed=None):
         self.funcs = funcs
+        self.seed = seed
         self._area = np.array([f.area for f in funcs])
         self._arrival_cache = np.zeros(4)
+        self._rng = np.random.default_rng(seed=seed)
 
     @lru_cache
     def __call__(self, t, scale=1):
         return np.sum([f(t) - f(t - scale) for f in self.funcs])
+
+    def components(self, t, scale=1):
+        """Returns the unsummed values of the component functions over a
+        given interval."""
+        return np.fromiter((f(t) - f(t - scale) for f in self.funcs),
+                           dtype=np.float64, count=len(self.funcs))
+
+    def arrival_components(self, alpha, beta, components, coefs):
+        """Returns the sum of arrivals as generated from a poisson rv
+        for each component function."""
+        return sum(n * beta - np.sum(f.inverse(
+                p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
+                   for n, f, p in zip(components, self.funcs, coefs))
 
     @lru_cache
     def _cdf(self, t):
