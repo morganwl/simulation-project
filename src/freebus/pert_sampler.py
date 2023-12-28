@@ -11,9 +11,9 @@ from .experiments import get_builtin_experiments
 from .randomvar import Pert
 
 
-def main(experiment, output, points=12, min_mean=3, max_mean=48,
-         tol=.5, batchsize=3):
-    results = load_results(output)
+def main(experiment, output, points=20, min_mean=2, max_mean=21,
+         tol=.5, batchsize=5):
+    results = load_results(output, len(experiment.headers))
     active = np.full(points, False)
     active[0], active[points // 2], active[-1] = True, True, True
     perts = np.ones((points, 3))
@@ -21,9 +21,12 @@ def main(experiment, output, points=12, min_mean=3, max_mean=48,
     perts[:, 0] = np.ceil(perts[:, 1] // 8)
     perts[:, 2] = 120
     perts = perts / 60
-    means, perror = process(results,
-                            perts,
-                            experiment.headers)
+    if results:
+        means, perror = process(results,
+                                perts,
+                                experiment.headers)
+    else:
+        means = perror = np.ones(points)
     while True:
         queue = list((-perror[i], i) for i
                      in np.arange(points)[active])
@@ -42,12 +45,17 @@ def main(experiment, output, points=12, min_mean=3, max_mean=48,
         if np.sum(active) == points:
             tol = tol / 2
             active[:] = False
-        active[np.round(np.linspace(
-            0, points - 1, num=np.sum(active)+2)).astype(int)] = True
+        active[np.floor(np.linspace(
+            0, points - 1,
+            num=np.sum(active)
+            + np.random.binomial(3, .4) + 1)).astype(int)] = True
     print()
 
 
-def load_results(output):
+def load_results(output, width):
+    print(output)
+    if not output.exists():
+        return []
     return [row for row in
             np.loadtxt(output,
                        delimiter=',',
@@ -78,13 +86,23 @@ def process(results, perts, headers):
 
 
 def print_status(results, means, perror):
-    buffer = [f'{len(results):5d}'] + [
-        f'{m:6.2f} ({pe*100:5.1f})'
-        for m, pe in zip(means, perror)]
-    print('  '.join(buffer), end='\r')
+    count = f'{len(results):4d} '
+    buffer = [f'{m:3.0f}|{pe*100:4.1f}'
+              for m, pe in zip(means, perror)]
+    per_line = 120 // 6
+    for i in range(len(buffer) // per_line + 1):
+        if i == 0:
+            print(count, end='')
+        else:
+            print(' ' * len(count), end='')
+        print(' '.join(buffer[i*per_line:(i+1)*per_line]))
+    print()
 
 
 def cli_entry():
     experiment = get_builtin_experiments()['brooklyn']
-    output = Path('results') / 'brooklyn.csv'
+    output = '{name}_{checksum}.csv'
+    output = output.format(
+        name='brooklyn', checksum=experiment.checksum())
+    output = Path('results') / output
     main(experiment, output)

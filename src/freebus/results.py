@@ -6,8 +6,8 @@ import itertools
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.collections import PatchCollection
 import numpy as np
+import scipy.stats
 
 from .main import Defaults, confidence_interval
 from .experiments import get_builtin_experiments
@@ -29,6 +29,7 @@ def parse_args():
 
 class Output:
     """Global state for outputting figures."""
+
     output_dir = Path('figures')
     generated_figures = []
     fmt = 'png'
@@ -61,7 +62,7 @@ class Output:
 
     @classmethod
     def html_report(cls):
-        """Generates a simple html report."""
+        """Generate a simple html report."""
         name = 'report' if cls.name is None else cls.name
         with open(cls.output_dir / (name + '.html'), 'wt',
                   encoding='utf8') as f:
@@ -73,6 +74,79 @@ class Output:
 
 
 def plot_tvl(dataset, cols, name, ax, quantile=.5):
+    """Scatter plot total travel time vs mean loading time."""
+    loading = np.unique(dataset[:, cols['pert-mean']])
+    groups = (dataset[:, cols['pert-mean']] == u
+              for u in loading)
+    groups = (dataset[g] for g in groups)
+    sums = (np.sum(g[:, [cols['waiting-time'],
+                         cols['loading-time'],
+                         cols['moving-time'],
+                         cols['holding-time']]],
+                   axis=1) for g in groups)
+    ax.set_ylim([110, 165])
+    seconds = loading * 60
+    sums = list(sums)
+    for load_time, travel_time in zip(seconds, sums):
+        num_trials = len(travel_time)
+        x = np.full(num_trials, load_time)
+        ax.scatter(x, [np.median(np.random.choice(travel_time,
+                                                  num_trials))
+                       for _ in range(num_trials)],
+                   alpha=3e-2,
+                   s=75,
+                   c='#1f77b4')
+        ax.scatter(load_time, np.median(travel_time),
+                   alpha=1e-1,
+                   s=125,
+                   c='#1f77b4')
+    ax.plot([seconds[0], seconds[-1]],
+            [np.median(sums[0]), np.median(sums[-1])])
+
+
+def plot_tvl3(dataset, cols, name, ax, quantile=.5):
+    """Plot differences in travel time vs loading time.
+
+    Calculate differences for a random sampling of paired trials.
+    """
+    minuend = dataset[:, [cols['pert-mean'],
+                          cols['waiting-time'],
+                          cols['loading-time'],
+                          cols['holding-time'],
+                          cols['moving-time'],]]
+    minuend = minuend[np.random.choice(minuend.shape[0], 50000), :]
+    subtrahend = np.random.permutation(minuend)
+    difference = minuend - subtrahend
+    difference[:, 0] = np.round(difference[:, 0], 4)
+    loading = np.unique(difference[:, 0])
+    groups = [
+        np.sum(
+            difference[np.ix_(difference[:, 0] == lt,
+                              np.arange(1, 5))],
+            axis=1)
+        for lt in loading]
+    confidence = [confidence_interval(np.array([g]).transpose(),
+                                      quantile=.5)[0]
+                  for g in groups]
+    plt.plot(60 * loading, [np.mean((g)) for g in groups])
+    m0, b0, r0, p0, e0 = scipy.stats.linregress(loading,
+                                                [c0 for c0, c1 in
+                                                 confidence])
+    m1, b1, r1, p1, e1 = scipy.stats.linregress(loading, [c1 for c0, c1
+                                                          in
+                                                          confidence])
+    plt.plot(60 * loading, m0 * loading + b0,
+             alpha=.75 * abs(r0) * (1 - p0), lw=e0)
+    plt.plot(60 * loading, m1 * loading + b1,
+             alpha=.75 * abs(r1) * (1 - p1), lw=e1)
+
+
+def plot_tvl2(dataset, cols, name, ax, quantile=.5):
+    """Plot total travel time vs mean loading time.
+
+    Plots travel time as a line, as well as ploting upper and lower
+    bounds of confidence interval.
+    """
     loading = np.unique(dataset[:, cols['pert-mean']])
     groups = (dataset[:, cols['pert-mean']] == u
               for u in loading)
@@ -83,7 +157,7 @@ def plot_tvl(dataset, cols, name, ax, quantile=.5):
                          cols['holding-time']]],
                    axis=1) for g in groups)
     sums = list(sums)
-    travel_time = np.fromiter((np.quantile(s, quantile) for s in sums),
+    travel_time = np.fromiter((np.mean(s) for s in sums),
                               dtype=np.float64)
     confidence = [confidence_interval(np.array([s]).transpose(),
                                       quantile=quantile)[0]
@@ -94,11 +168,19 @@ def plot_tvl(dataset, cols, name, ax, quantile=.5):
     ax.plot(seconds, travel_time)
     ax.plot(seconds, upper_confidence, alpha=0.5)
     ax.plot(seconds, lower_confidence, alpha=0.5)
-    # plot_estimate_line(dataset, cols, ax, loading[3:], travel_time[3:])
-    ax.title.set_text(f'{name}')
+    difference = travel_time[-1] - travel_time[0]
+    ax.title.set_text(
+        f'{name}\n{difference:.1f} '
+        f'(+{upper_confidence[-1] - lower_confidence[0] - difference:.2f}, '
+        f'-{difference - lower_confidence[-1] + upper_confidence[0]:.2f})')
 
 
 def plot_estimate_line(dataset, cols, ax, loading, travel_time):
+    """Plot linear estimate of travel time vs mean loading time.
+
+    Line is drawn between mean of shortest and longest observed mean
+    loading time.
+    """
     base_group = dataset[dataset[:, cols['pert-mean']] == loading[0]]
     base_loading = np.mean(base_group[:, cols['loading-time']]) / 3
     loading = loading * 60
@@ -107,24 +189,18 @@ def plot_estimate_line(dataset, cols, ax, loading, travel_time):
     ax.plot(loading, estimate_travel)
 
 
-def plot_travel_vs_loading(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
-                                 COLS if len(datasets) >= COLS else len(datasets),
-                                 squeeze=False, sharey=True, sharex=True)
-    fig.suptitle('Travel vs loading mean')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_tvl(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'tvl')
-
-
-def plot_loading_distribution():
-    fig = plt.figure()
-    fig.suptitle('Sample loading distribution')
-    pert = Pert(1/60, 12/60, 120/60, lamb=6)
-    plt.hist([pert() for _ in range(50000)], bins=20)
-    pert = Pert(1/60, 3/60, 120/60, lamb=6)
-    plt.hist([pert() for _ in range(50000)], bins=20)
-    Output.figure(fig, 'pert', 'pert')
+def plot_loading_times(dataset, cols, name, ax, lamb=5):
+    """Plot minimum, median, and maximum loading distributions."""
+    loading_times = np.unique(dataset[:,
+                                      (cols['pert-min'],
+                                       cols['pert-mean'],
+                                       cols['pert-max'],)],
+                              axis=0)
+    for i in [0, len(loading_times) // 2, len(loading_times) - 1]:
+        lt = loading_times[i]
+        distribution = 60 * Pert(*lt, lamb=lamb)(n=1000)
+        plt.hist(distribution, bins=20, density=True,
+                 histtype='bar',)
 
 
 def plot_travel_time(dataset, cols, name, ax):
@@ -141,104 +217,97 @@ def plot_travel_time(dataset, cols, name, ax):
 
 
 def plot_pph(dataset, cols, name, ax):
-    """Plots passengers per hour from a single dataset."""
+    """Plot passengers per hour from a single dataset."""
     ax.bar(range(24), np.mean(dataset[:, [cols[f'passengers-{i}']
                                           for i in range(24)]],
                               axis=0))
     ax.title.set_text(f'{name}')
 
 
-def plot_travel_times(datasets):
-    """Plot the total travel times for one or more datasets
-    side-by-side."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
-                                 COLS if len(datasets) > COLS else
-                                 len(datasets),
-                                 squeeze=False, sharey=True,
-                                 sharex=True)
-    fig.suptitle('Total Travel Time')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_travel_time(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'travel')
-
-
-def plot_passengers_per_hour(datasets):
-    """Plot mean passengers per hour for one or more datasets
-    side-by-side."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
-                                 COLS if len(datasets) > COLS else
-                                 len(datasets),
-                                 squeeze=False, sharey=True, sharex=True)
-    fig.suptitle('Passengers per hour')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_pph(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'pph')
-
-
-def plot_traffic_daily(datasets):
-    """Plot a histogram of daily traffic volume."""
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
-                                 COLS if len(datasets) > COLS else len(datasets),
-                                 squeeze=False, sharey=True, sharex=True)
-    fig.suptitle('Daily traffic volume')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_traffic(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'traffic')
-
-
 def plot_traffic(dataset, cols, name, ax):
-    """Plots a histogram of daily traffic volume for one dataset."""
+    """Plot a histogram of daily traffic volume for one dataset."""
     traffic = dataset[:, cols['traffic-daily']]
     ax.hist(traffic, density=True)
     ax.title.set_text(f'{name}')
 
 
-def plot_traffic_per_hour(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
-                                 COLS if len(datasets) > COLS else len(datasets),
-                                 squeeze=False, sharey=True, sharex=True)
-    fig.suptitle('Traffic per hour')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_tph(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'tph')
-
-
 def plot_tph(dataset, cols, name, ax):
-    """Plots average distribution of traffic per hour for one
-    dataset."""
+    """Plot average distribution of traffic per hour."""
     ax.bar(range(24), np.mean(dataset[:, [cols[f'traffic-{i}']
                                           for i in range(24)]],
                               axis=0))
     ax.title.set_text(f'{name}')
 
 
-def plot_passengers_daily(datasets):
-    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS, 
-                                 COLS if len(datasets) > COLS else len(datasets),
-                                 squeeze=False, sharey=True, sharex=True)
-    fig.suptitle('Daily passengers')
-    for ((ds, cols, name), ax) in zip(datasets, itertools.chain(*subplots)):
-        plot_passengers(ds, cols, name, ax)
-    Output.figure(fig, datasets[0][2], 'passengers')
-
-
 def plot_passengers(dataset, cols, name, ax):
+    """Plot distribution of total passengers."""
     passengers = dataset[:, cols['total-passengers']]
     ax.hist(passengers, density=True)
     ax.title.set_text(f'{name}')
 
 
-def expand_results(sources):
-    builtins = get_builtin_experiments()
-    for i, source in enumerate(sources):
-        source = str(source)
-        if source in builtins:
-            filename = f'{source}_{builtins[source].checksum()}.csv'
-            sources[i] = Path('results') / filename
-    return sources
+def plot_heavy_traffic_loading(dataset, cols, name, ax,
+                               quantile=0.75):
+    """Plot the travel time vs loading for days with heavy traffic."""
+    heavy_traffic = np.quantile(dataset[:, cols['traffic-daily']],
+                                q=quantile)
+    dataset = dataset[dataset[:, cols['traffic-daily']] >= heavy_traffic, :]
+    loading_times = np.unique(dataset[:, cols['pert-mean']])
+    means = np.array([np.mean(
+        np.sum(dataset[np.ix_(
+            dataset[:, cols['pert-mean']] == lt,
+            [cols['waiting-time'],
+             cols['loading-time'],
+             cols['holding-time'],
+             cols['moving-time']])],
+               axis=1)) for lt in loading_times])
+    ax.plot(60 * loading_times, means)
+
+
+def plot_heavy_passenger_loading(dataset, cols, name, ax,
+                                 quantile=0.9):
+    """Plot the travel time vs loading for days with heavy demand."""
+    heavy_pass = np.quantile(dataset[:, cols['total-passengers']],
+                             q=quantile)
+    dataset = dataset[dataset[:, cols['total-passengers']] >= heavy_pass, :]
+    loading_times = np.unique(dataset[:, cols['pert-mean']])
+    means = np.array([np.mean(
+        np.sum(dataset[np.ix_(
+            dataset[:, cols['pert-mean']] == lt,
+            [cols['waiting-time'],
+             cols['loading-time'],
+             cols['holding-time'],
+             cols['moving-time']])],
+               axis=1)) for lt in loading_times])
+    ax.plot(60 * loading_times, means)
+
+
+def plot_buscap_load(dataset, cols, name, ax):
+    """Plot upper passenger counts vs loading time."""
+    loading_times = np.unique(dataset[:, cols['pert-mean']])
+    buscap = np.array([
+        np.mean(dataset[dataset[:, cols['pert-mean']] == lt,
+                        cols['extreme-load']])
+        for lt in loading_times])
+    ax.plot(loading_times * 60,
+            buscap)
+
+
+def new_figure(datasets, name, func):
+    """Initialize a figure for a plotting function."""
+    fig, subplots = plt.subplots((len(datasets) + COLS - 1) // COLS,
+                                 COLS if len(datasets) > COLS
+                                 else len(datasets),
+                                 squeeze=False, sharey=False, sharex=False)
+    fig.suptitle(name)
+    for ((ds, cols, filename), ax) in zip(datasets,
+                                          itertools.chain(*subplots)):
+        func(ds, cols, filename, ax)
+    Output.figure(fig, datasets[0][2], name.replace(' ', '_'))
 
 
 def expand_source(source):
+    """Match experiment name to results file for latest parameters."""
     builtins = get_builtin_experiments()
     if source in builtins:
         filename = f'{source}_{builtins[source].checksum()}.csv'
@@ -256,13 +325,24 @@ def main(sources):
             cols = {c: i for i, c in enumerate(next(reader))}
             data = np.loadtxt(f, delimiter=',')
         datasets.append((data, cols, source))
-    plot_travel_times(datasets)
-    plot_passengers_per_hour(datasets)
-    plot_passengers_daily(datasets)
-    plot_traffic_daily(datasets)
-    plot_traffic_per_hour(datasets)
-    plot_travel_vs_loading(datasets)
-    plot_loading_distribution()
+    for func, name in [
+            (plot_tvl3, ''),
+            (plot_travel_time, 'daily travel time'),
+            (plot_passengers, 'daily passenger volume'),
+            (plot_pph, 'passengers per hour'),
+            (plot_traffic, 'daily traffic volume'),
+            (plot_tph, 'traffic per hour'),
+            (plot_tvl, 'travel time vs boarding time'),
+            (plot_tvl2, 'travel time vs boarding time alt'),
+            (plot_loading_times, 'loading time distributions'),
+            (plot_heavy_traffic_loading,
+             'travel time vs boarding under heavy traffic'),
+            (plot_heavy_passenger_loading,
+             'travel time vs boarding under heavy passengers'),
+            (plot_buscap_load,
+             'extreme bus load vs loading time'),
+    ]:
+        new_figure(datasets, name, func)
     Output.html_report()
 
 

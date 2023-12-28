@@ -270,7 +270,8 @@ class Experiment:
 
     def _init_transfer_rates(self):
         for t in self._routes.transfers:
-            t.p = t.rate / self.demand_unloading(t.fr_route, t.fr_stop)
+            t.p = (t.rate / self.demand_unloading(t.fr_route, t.fr_stop)
+                   * self.unload_pct[t.fr_route][t.fr_stop])
 
     def get_transfers(self, route, stop):
         """Returns a list of all transfers from route, stop."""
@@ -324,7 +325,7 @@ def b35_schedule():
 def get_builtin_routes():
     """Returns a dictionary of built-in routes."""
     brooklyn_loading, brooklyn_unloading = randomize_routes([48, 42],
-                                                            [12408, 11256])
+                                                            [7410, 6926])
     return {
         'two-stop-fixed': Routes(
             routes=[2],
@@ -395,7 +396,7 @@ def get_builtin_routes():
                                        ]),
                                        daily_func=Beta(5, 5, bias=.5)),
             demand_unloading=Fixed(brooklyn_unloading),
-            transfers=[(0,21,1,17,.7), (1,17,0,21,.75)]
+            transfers=[(0,17,1,14,145), (1,14,0,17,120)]
         ),
     }
 
