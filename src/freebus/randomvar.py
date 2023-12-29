@@ -10,8 +10,8 @@ from scipy.special import gamma
 
 
 def auto_repr(cls):
-    """Create a __repr__ method from the signature of the __init__
-    method of a class."""
+    """Create __repr__ method from class's __init__ method."""
+
     def __repr__(self):
         params = []
         for k, p in inspect.signature(cls.__init__).parameters.items():
@@ -32,6 +32,7 @@ def auto_repr(cls):
 
 class RandomVar:
     """A callable object initialized with specific values."""
+
     def __call__(self, *args, scale=1, n=None):
         """Returns the value at a given set of parameters, optionally
         scaled. Returns an array of n samples of the same variable, or a
@@ -63,6 +64,7 @@ class RandomVar:
 class Fixed(RandomVar):
     """A fixed variable returns the same value for any number of
     inputs."""
+
     def __init__(self, mean):
         self.mean = np.array(mean)
         self._dim = len(self.mean.shape)
@@ -85,6 +87,7 @@ class Fixed(RandomVar):
 @auto_repr
 class FixedAlternating(RandomVar):
     """Returns alternating fixed values."""
+
     def __init__(self, mean):
         self.mean = np.array(mean)
         self._dim = len(self.mean.shape) - 1
@@ -114,6 +117,7 @@ class FixedAlternating(RandomVar):
 @auto_repr
 class Pois(RandomVar):
     """Returns a poisson random variable."""
+
     def __init__(self, mean, daily_func=None):
         self.mean = np.array(mean)
         self.daily_func = daily_func
@@ -141,11 +145,12 @@ class Pois(RandomVar):
         """Returns the sum of arrival times, given n arrivals over time t."""
         return sum(self._rng.uniform(0, scale) for _ in range(n))
 
-    def reset(self):
+    def reset(self, uniform=None):
         """Generates new daily scale from daily_func, if one has been
         provided."""
         if self.daily_func:
-            self._daily_scale = self.daily_func()
+            daily = self.daily_func(uniform=uniform)
+            self._daily_scale = daily
 
     def __repr__(self):
         return (f'{type(self).__name__}('
@@ -155,6 +160,7 @@ class Pois(RandomVar):
 @auto_repr
 class TimeVarPois(RandomVar):
     """A Poisson random variable conditioned on some function f(time)."""
+
     def __init__(self, mean, time_func, daily_func=None, seed=None):
         self.mean = np.array(mean)
         self.time_func = time_func
@@ -209,16 +215,17 @@ class TimeVarPois(RandomVar):
             return result
         return self.time_func.sum_arrivals(time - scale, time, n)
 
-    def reset(self):
+    def reset(self, uniform=None):
         """Generates new daily scale from daily_func, if one has been
         provided."""
         if self.daily_func:
-            self._daily_scale = self.daily_func()
+            self._daily_scale = self.daily_func(uniform=uniform)
 
 
 @auto_repr
 class Pert:
     """Random variable matching the PERT distribution, generated with numpy."""
+
     def __init__(self, a, b, c, lamb=4, scale=None):
         self.a, self.b, self.c = a, b, c
         self.lamb = lamb
@@ -242,6 +249,7 @@ class Pert:
 @auto_repr
 class Beta:
     """Random variable matching the beta distribution."""
+
     def __init__(self, a, b, bias=0):
         self.a = a
         self.b = b
@@ -251,13 +259,21 @@ class Beta:
     def expected(self, *_):
         return self.a / (self.a + self.b) + self.bias
 
-    def __call__(self, n=None):
+    def transform(self, u):
+        """Use a uniform random variable to generate a beta random
+        variable."""
+        return scipy.stats.beta.ppf(u, self.a, self.b)
+
+    def __call__(self, n=None, uniform=None):
+        if uniform:
+            return self.transform(uniform)
         return self._rng.beta(self.a, self.b, size=n) + self.bias
 
 
 @auto_repr
 class Gamma(RandomVar):
     """Random variable matching the gamma distribution."""
+
     def __init__(self, k, theta, seed=None):
         self.k, self.theta = k, theta
         rng = np.random.default_rng(seed=seed)
@@ -275,6 +291,7 @@ class Gamma(RandomVar):
 class IndicatorKernel:
     """An indicator kernel has a value of either x or 0, where the
     integral over the bounds is equal to volume."""
+
     def __init__(self, volume, lower, upper):
         self.value = volume / (upper - lower)
         self.volume = volume
@@ -300,6 +317,7 @@ class IndicatorKernel:
 class SumOfFunctionKernel:
     """A kernel that returns the sum of a list of arbitrary functions
     over time t."""
+
     def __init__(self, funcs: list):
         self.funcs = funcs
 
@@ -316,6 +334,7 @@ class SumOfFunctionKernel:
 class SumOfDistributionKernel:
     """A kernel that returns the sum of of a list of cumulative
     distribution functions over time t."""
+
     def __init__(self, funcs: list, seed=None):
         self.funcs = funcs
         self.seed = seed
@@ -337,8 +356,8 @@ class SumOfDistributionKernel:
         """Returns the sum of arrivals as generated from a poisson rv
         for each component function."""
         return sum(n * beta - np.sum(f.inverse(
-                p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
-                   for n, f, p in zip(components, self.funcs, coefs))
+            p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
+            for n, f, p in zip(components, self.funcs, coefs))
 
     @lru_cache
     def _cdf(self, t):
@@ -382,6 +401,7 @@ class SumOfDistributionKernel:
 @auto_repr
 class SumOf:
     """A callable sum of callable objects."""
+
     def __init__(self, funcs: list):
         self.funcs = funcs
 
@@ -393,6 +413,7 @@ class SumOf:
 @auto_repr
 class GammaTimeFunc:
     """A time function based on a gamma distribution."""
+
     def __init__(self, k, theta, area=1):
         self.k = k
         self.theta = theta
@@ -409,6 +430,7 @@ class GammaTimeFunc:
 @auto_repr
 class BetaTimeFunc:
     """A time function based on a beta distribution."""
+
     def __init__(self, a, b, area=1, pdf=False):
         self.a = a
         self.b = b

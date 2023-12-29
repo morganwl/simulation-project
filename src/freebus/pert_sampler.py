@@ -12,7 +12,7 @@ from .randomvar import Pert
 
 
 def main(experiment, output, points=20, min_mean=2, max_mean=21,
-         tol=.5, batchsize=5):
+         tol=.5, batchsize=4, antithetic=True):
     results = load_results(output, len(experiment.headers))
     active = np.full(points, False)
     active[0], active[points // 2], active[-1] = True, True, True
@@ -37,7 +37,8 @@ def main(experiment, output, points=20, min_mean=2, max_mean=21,
             print_status(results, means, perror)
             experiment.time_loading = Pert(*pert, lamb=5,
                                            scale=capacity_scale)
-            batch = simulate_batch(experiment, batchsize)
+            batch = simulate_batch(experiment, batchsize,
+                                   antithetic=antithetic)
             write_batch(batch, experiment.headers, output)
             results.extend(batch)
             means, perror = process(results, perts, experiment.headers)
@@ -96,7 +97,6 @@ def print_status(results, means, perror):
         else:
             print(' ' * len(count), end='')
         print(' '.join(buffer[i*per_line:(i+1)*per_line]))
-    print()
 
 
 def cli_entry():

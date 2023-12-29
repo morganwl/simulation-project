@@ -2,7 +2,7 @@
 
 import argparse
 import csv
-from collections import defaultdict
+import logging
 import os
 
 import numpy as np
@@ -56,12 +56,32 @@ def seconds(s):
     return [float(f)/60 for f in s.split(',')]
 
 
-def simulate_batch(experiment, batch_size):
-    """Returns an array of results for a batch of trials."""
+def simulate_batch(experiment, batch_size, antithetic=False):
+    """Return an array of results for a batch of trials."""
     batch = np.empty((batch_size, len(experiment.headers)), dtype=np.float64)
-    for i in range(batch_size):
-        batch[i] = measure(simulate(experiment), experiment.headers,
-                           experiment.traffic, experiment.time_loading)
+    if antithetic:
+        if batch_size % 4:
+            logging.warning((
+                'Antithetic variables require a batch size divisible by 4.\n'
+                '  %d changed to %d.'), batch_size,
+                            batch_size - batch_size % 4)
+        batch_size = batch_size // 4
+        batch = np.empty((batch_size, len(experiment.headers)),
+                         dtype=np.float64)
+        for i in range(batch_size):
+            group = []
+            u, v = np.random.uniform(), np.random.uniform()
+            for p in [u, 1 - u]:
+                for r in [v, 1 - v]:
+                    group.append(
+                        measure(simulate(experiment, uniforms=[p, r]),
+                                experiment.headers, experiment.traffic,
+                                experiment.time_loading))
+            batch[i] = np.mean(group, axis=0)
+    else:
+        for i in range(batch_size):
+            batch[i] = measure(simulate(experiment), experiment.headers,
+                               experiment.traffic, experiment.time_loading)
     return batch
 
 

@@ -8,7 +8,7 @@ import numpy as np
 
 from freebus.randomvar import Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, IndicatorKernel, GammaTimeFunc, \
-    BetaTimeFunc, SumOfDistributionKernel
+    BetaTimeFunc, SumOfDistributionKernel, Beta
 
 
 def test_fixed_rv():
@@ -276,3 +276,24 @@ def test_analytic_poisson_arrival_times(time, lam, scale, n, func):
         rv.sum_arrivals(n, scale, time=time)
         for _ in range(1000)])
     assert result == approx(expected, rel=0.05)
+
+
+@pytest.mark.parametrize(['a', 'b'],
+                         [(2, 2),
+                          (9, 10),
+                          (5, .2)])
+def test_beta_antithetic_variables(a, b):
+    """Beta should have same mean but lower variance with antithetic
+    uniform variables."""
+    rng = np.random.default_rng()
+
+    def antithetic_rv(rv):
+        u = rng.uniform()
+        return np.mean([rv.transform(u), rv.transform(1 - u)])
+    rv = Beta(a, b)
+    result = [antithetic_rv(rv) for _ in range(500)]
+    mean, var = np.mean(result), np.var(result)
+    expected = [rv() for _ in range(1000)]
+    exp_mean, exp_var = np.mean(expected), np.var(expected)
+    assert mean == approx(exp_mean, rel=0.05)
+    assert 2 * var < exp_var

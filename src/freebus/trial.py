@@ -41,8 +41,8 @@ class Bus:
 class Trial:
     """Object to manage state for a single trial."""
 
-    def __init__(self, experiment, rng=None):
-        experiment.reset()
+    def __init__(self, experiment, rng=None, uniforms=None):
+        experiment.reset(uniforms)
         self.experiment = experiment
         if rng is None:
             rng = np.random.default_rng()
@@ -223,7 +223,7 @@ class Trial:
         return event
 
 
-def simulate(experiment, rng=None):
+def simulate(experiment, rng=None, uniforms=None):
     """Convenience method to create a new trial object and call
     simulate() on it."""
-    return Trial(experiment, rng).simulate()
+    return Trial(experiment, rng, uniforms).simulate()

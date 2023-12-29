@@ -52,13 +52,20 @@ class Routes:
         self.transfers = [Transfer(*t) for t in self.transfers]
         self._init_unloading_pct()
 
-    def reset(self):
-        """Resets any per-trial parameters."""
+    def reset(self, uniforms):
+        """Reset any per-trial parameters."""
         for rv in ['traffic', 'demand_loading']:
             try:
-                getattr(self, rv).reset()
+                if uniforms:
+                    uniform = uniforms[-1]
+                else:
+                    uniform=None
+                getattr(self, rv).reset(uniform)
             except AttributeError:
                 pass
+            else:
+                if uniforms:
+                    uniforms.pop()
 
     def _init_unloading_pct(self):
         unload_pct = np.zeros((len(self.routes), max(self.routes)))
@@ -188,11 +195,11 @@ class TrafficModel:
                 node = node.right
         self.time_trees[(route, stop)] = Node(t, val)
 
-    def reset(self):
+    def reset(self, uniform):
         """Reset per-trial values in the traffic model."""
         self.time_trees = {}
         if self.daily_func:
-            self._daily_scale = self.daily_func()
+            self._daily_scale = self.daily_func(uniform=uniform)
 
     def fix(self, route, stop, t, val):
         """Insert a traffic point as a fixed value in the traffic
@@ -283,9 +290,9 @@ class Experiment:
         return [t for t in self._routes.transfers
                 if t.to_route == route and t.to_stop == stop]
 
-    def reset(self):
+    def reset(self, uniforms=None):
         """Resets any per-trial parameters."""
-        self._routes.reset()
+        self._routes.reset(uniforms)
 
     def __repr__(self):
         if self.gather_pert:

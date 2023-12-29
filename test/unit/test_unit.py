@@ -43,15 +43,15 @@ def test_simulate_deterministic_experiment(deterministic_experiment):
     sequence of events."""
     events = fb.main.simulate(deterministic_experiment)
     assert events == [
-            Event(10, 0, 'unload', 0, 0, 10, 0),
-            Event(10, 5, 'wait', 0, 0, 10, 0, 1),
-            Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'wait', 0, 0, 10, 1),
-            Event(11, 3, 'depart', 0, 0, 10, 1),
-            Event(14, 1, 'unload', 0, 1, 10, 0),
-            Event(15, 0, 'wait', 0, 1, 10, 0),
-            Event(15, 0, 'depart', 0, 1, 10, 0),
-            ]
+        Event(10, 0, 'unload', 0, 0, 10, 0),
+        Event(10, 5, 'wait', 0, 0, 10, 0, 1),
+        Event(10, 1, 'load', 0, 0, 10, 1),
+        Event(11, 0, 'wait', 0, 0, 10, 1),
+        Event(11, 3, 'depart', 0, 0, 10, 1),
+        Event(14, 1, 'unload', 0, 1, 10, 0),
+        Event(15, 0, 'wait', 0, 1, 10, 0),
+        Event(15, 0, 'depart', 0, 1, 10, 0),
+    ]
 
 
 def test_measure_deterministic_experiment(deterministic_experiment):
@@ -74,14 +74,14 @@ def test_measure_one_passenger(deterministic_experiment):
         expected_waiting, expected_loading, expected_moving,
         expected_holding, expected_passengers])
     events = [
-            Event(10, 0, 'unload', 0, 0, 10, 0),
-            Event(10, 5, 'wait', 0, 0, 10, 0, 1),
-            Event(10, 1, 'load', 0, 0, 10, 1),
-            Event(11, 0, 'wait', 0, 0, 10, 1),
-            Event(12, 4, 'depart', 0, 0, 10, 1),
-            Event(16, 1, 'unload', 0, 1, 10, 0),
-            Event(17, 0, 'wait', 0, 1, 10, 0),
-            Event(17, 0, 'depart', 0, 1, 10, 0)]
+        Event(10, 0, 'unload', 0, 0, 10, 0),
+        Event(10, 5, 'wait', 0, 0, 10, 0, 1),
+        Event(10, 1, 'load', 0, 0, 10, 1),
+        Event(11, 0, 'wait', 0, 0, 10, 1),
+        Event(12, 4, 'depart', 0, 0, 10, 1),
+        Event(16, 1, 'unload', 0, 1, 10, 0),
+        Event(17, 0, 'wait', 0, 1, 10, 0),
+        Event(17, 0, 'depart', 0, 1, 10, 0)]
     result = fb.main.measure(events, deterministic_experiment.headers)
     assert (result == expected).all()
 
@@ -99,14 +99,14 @@ def test_measure_two_passengers(deterministic_experiment):
         expected_waiting, expected_loading, expected_moving,
         expected_holding, expected_passengers])
     events = [
-            Event(10, 0, 'unload', 0, 0, 10, 0),
-            Event(10, 3.75, 'wait', 0, 0, 10, 0, 2),
-            Event(10, 2, 'load', 0, 0, 10, 2),
-            Event(12, 0, 'load', 0, 0, 10, 2),
-            Event(12, 4, 'depart', 0, 0, 10, 2),
-            Event(16, 2, 'unload', 0, 1, 10, 0),
-            Event(18, 0, 'wait', 0, 1, 10, 0),
-            Event(18, 0, 'depart', 0, 1, 10, 0)]
+        Event(10, 0, 'unload', 0, 0, 10, 0),
+        Event(10, 3.75, 'wait', 0, 0, 10, 0, 2),
+        Event(10, 2, 'load', 0, 0, 10, 2),
+        Event(12, 0, 'load', 0, 0, 10, 2),
+        Event(12, 4, 'depart', 0, 0, 10, 2),
+        Event(16, 2, 'unload', 0, 1, 10, 0),
+        Event(18, 0, 'wait', 0, 1, 10, 0),
+        Event(18, 0, 'depart', 0, 1, 10, 0)]
     result = fb.main.measure(events, deterministic_experiment.headers)
     assert (result == expected).all()
 
@@ -117,7 +117,7 @@ def test_confidence_interval():
         np.arange(0, 20, 1),
         np.arange(100, 120, 1),
         np.arange(1000, 1020, 1),
-        ])
+    ])
     means = np.mean(trials, axis=0)
     assert len(means) == 3
     intervals = fb.main.confidence_interval(trials, np.random.default_rng())
@@ -156,3 +156,30 @@ def test_route_randomize(routes, daily_rates):
             passengers -= u
             assert passengers >= 0
             passengers += l
+
+
+def test_antithetic_batch():
+    """An antithetic batch has the same mean with lower variance."""
+    experiment = fb.experiments.Experiment(
+        fb.experiments.Routes(
+            [2], [[1, 0]],
+            demand_loading=fb.randomvar.Pois(
+                [[.25, 0]], daily_func=fb.randomvar.Beta(1.5, 1.5)),
+            demand_unloading=fb.randomvar.Fixed([[0, 1]]),
+            traffic=fb.experiments.TrafficModel(
+                fb.randomvar.Fixed(2),
+                daily_func=fb.randomvar.Beta(1.5, 1.5))),
+        time_loading=fb.randomvar.Fixed(1),
+        time_unloading=fb.randomvar.Fixed(1),
+        schedule=[[10, 20, 30, 40, 50, 60]],
+        headers=fb.experiments.Headers.SIMPLE)
+    batch = fb.main.simulate_batch(
+        experiment, 500, antithetic=True)[:, np.arange(4)]
+    batch = np.sum(batch, axis=1)
+    mean, std = np.mean(batch, axis=0), np.std(batch, axis=0)
+    exp_batch = fb.main.simulate_batch(
+        experiment, 500, antithetic=False)[:, np.arange(4)]
+    exp_batch = np.sum(exp_batch, axis=1)
+    exp_mean, exp_std = np.mean(exp_batch, axis=0), np.std(exp_batch, axis=0)
+    assert mean == approx(exp_mean, rel=0.1)
+    assert std < exp_std
