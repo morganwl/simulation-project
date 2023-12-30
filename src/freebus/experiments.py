@@ -1,5 +1,6 @@
 """Experiment parameters."""
 
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from zlib import crc32
 
@@ -128,6 +129,13 @@ class Node:
     black: bool = True
 
 
+# @dataclass
+# class TrafficInstance:
+#     time: float
+#     val: float
+TrafficInstance = namedtuple('TrafficInstance', ['time', 'val'])
+
+
 class TrafficModel:
     """Models traffic volume with consistency."""
     def __init__(self, rand_scale, time_func=None,
@@ -138,7 +146,7 @@ class TrafficModel:
         self.time_func = time_func
         self.daily_func = daily_func
         self._daily_scale = daily_func() if daily_func else 1
-        self.time_trees = {}
+        self.time_trees = defaultdict(list)
 
     def __call__(self, route, stop, t):
         weight = 0
@@ -161,44 +169,70 @@ class TrafficModel:
         self.insert(route, stop, t, val)
         return val
 
-    def find_neighbors(self, route, stop, t):
+    def find_neighbors(self, route, stop, time):
         """Find the two closest nodes to time t. If t is already in the
         tree, these are both t."""
-        earlier = None
-        later = None
-        node = self.time_trees.get((route, stop))
-        while node is not None:
-            if node.time == t:
-                return node, node
-            if node.time < t:
-                earlier = node
-                node = node.right
+        earlier, later = None, None
+        tree = self.time_trees[(route, stop)]
+        i = 0
+        lower, upper = 0, len(tree)
+        while upper > lower:
+            i = lower + (upper - lower) // 2
+            if time == tree[i].time:
+                return tree[i], tree[i]
+            if time > tree[i].time:
+                lower = i + 1
+                earlier = tree[i]
             else:
-                later = node
-                node = node.left
+                upper = i
+                later = tree[i]
         return earlier, later
+        # earlier = None
+        # later = None
+        # node = self.time_trees.get((route, stop))
+        # while node is not None:
+        #     if node.time == t:
+        #         return node, node
+        #     if node.time < t:
+        #         earlier = node
+        #         node = node.right
+        #     else:
+        #         later = node
+        #         node = node.left
+        # return earlier, later
 
-    def insert(self, route, stop, t, val):
-        """Inserts a node in the time tree."""
-        node = self.time_trees.get((route, stop))
-        while node is not None:
-            if node.time == t:
-                return
-            if node.time > t:
-                if node.left is None:
-                    node.left = Node(t, val)
-                    return
-                node = node.left
-            else:
-                if node.right is None:
-                    node.right = Node(t, val)
-                    return
-                node = node.right
-        self.time_trees[(route, stop)] = Node(t, val)
+    def insert(self, route, stop, time, val):
+        """Insert a node in the time tree."""
+        # optimize for nodes being added in loose time order
+        tree = self.time_trees[(route, stop)]
+        tree.append(TrafficInstance(time, val))
+        i = -1
+        for i in reversed(range(len(tree) - 1)):
+            t, v = tree[i]
+            if time >= t:
+                break
+            tree[i + 1] = (t, v)
+        tree[i + 1] = TrafficInstance(time, val)
+
+        # node = self.time_trees.get((route, stop))
+        # while node is not None:
+        #     if node.time == t:
+        #         return
+        #     if node.time > t:
+        #         if node.left is None:
+        #             node.left = Node(t, val)
+        #             return
+        #         node = node.left
+        #     else:
+        #         if node.right is None:
+        #             node.right = Node(t, val)
+        #             return
+        #         node = node.right
+        # self.time_trees[(route, stop)] = Node(t, val)
 
     def reset(self, uniform=None):
         """Reset per-trial values in the traffic model."""
-        self.time_trees = {}
+        self.time_trees = defaultdict(list)
         if self.daily_func:
             self._daily_scale = self.daily_func(uniform=uniform)
 
@@ -208,18 +242,20 @@ class TrafficModel:
         self.insert(route, stop, t, val)
 
     def __iter__(self):
-        for (route, stop), root in self.time_trees.items():
-            frontier = [(root, False)]
-            while frontier:
-                node, seen = frontier.pop()
-                if seen:
-                    yield (route, stop, node.time, node.val)
-                    if node.right:
-                        frontier.append((node.right, False))
-                else:
-                    frontier.append((node, True))
-                    if node.left:
-                        frontier.append((node.left, False))
+        for (route, stop), tree in self.time_trees.items():
+            for time, val in tree:
+                yield (route, stop, time, val)
+            # frontier = [(root, False)]
+            # while frontier:
+            #     node, seen = frontier.pop()
+            #     if seen:
+            #         yield (route, stop, node.time, node.val)
+            #         if node.right:
+            #             frontier.append((node.right, False))
+            #     else:
+            #         frontier.append((node, True))
+            #         if node.left:
+            #             frontier.append((node.left, False))
 
     def __repr__(self):
         return f'{type(self).__name__}()'

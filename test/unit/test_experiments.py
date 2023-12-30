@@ -135,7 +135,7 @@ def test_traffic_model_reset(rand_func, time_func):
     assert (results[0] != results).any()
 
 
-def test_find_neighors():
+def test_traffic_find_neighbors():
     """The traffic model should return the correct neighbors."""
     traffic = TrafficModel(Fixed(.5))
     traffic.fix(0, 0, 1, .25)

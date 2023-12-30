@@ -137,10 +137,11 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
                                                           in
                                                           confidence])
     plt.plot(loading, m0 * loading + b0,
-             alpha=.75 * abs(r0) * (1 - p0), lw=e0)
+             alpha=.75 * abs(r0) * (1 - p0))
     plt.plot(loading, m1 * loading + b1,
-             alpha=.75 * abs(r1) * (1 - p1), lw=e1)
+             alpha=.75 * abs(r1) * (1 - p1))
     print(abs(r0) * (1 - p0), abs(r1) * (1 - p1))
+    print(m0 * loading + b0)
 
 
 def plot_tvl2(dataset, cols, name, ax, quantile=.5):
