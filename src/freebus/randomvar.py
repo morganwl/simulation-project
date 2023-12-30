@@ -262,7 +262,7 @@ class Beta:
     def transform(self, u):
         """Use a uniform random variable to generate a beta random
         variable."""
-        return scipy.stats.beta.ppf(u, self.a, self.b)
+        return scipy.stats.beta.ppf(u, self.a, self.b) + self.bias
 
     def __call__(self, n=None, uniform=None):
         if uniform:

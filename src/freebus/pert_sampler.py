@@ -12,7 +12,7 @@ from .randomvar import Pert
 
 
 def main(experiment, output, points=20, min_mean=2, max_mean=21,
-         tol=.5, batchsize=4, antithetic=True):
+         tol=.5, batchsize=12, antithetic=True):
     results = load_results(output, len(experiment.headers))
     active = np.full(points, False)
     active[0], active[points // 2], active[-1] = True, True, True
@@ -79,7 +79,8 @@ def process(results, perts, headers):
             sums = np.sum(rows[:, time_index], axis=1)
             means.append(np.mean(sums))
             ci = confidence_interval(np.array([sums]).transpose())[0]
-            perror.append((ci[1] - ci[0]) / means[-1] + .89**len(rows))
+            perror.append((ci[1] - ci[0]) / means[-1] +
+                          (1 - (ci[1] - ci[0]) / means[-1]) * .93**len(rows))
         else:
             means.append(1)
             perror.append(1)

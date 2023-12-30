@@ -114,10 +114,11 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
                           cols['loading-time'],
                           cols['holding-time'],
                           cols['moving-time'],]]
+    minuend[:, 0] = minuend[:, 0] * 60
     minuend = minuend[np.random.choice(minuend.shape[0], 50000), :]
     subtrahend = np.random.permutation(minuend)
     difference = minuend - subtrahend
-    difference[:, 0] = np.round(difference[:, 0], 4)
+    difference[:, 0] = np.round(difference[:, 0], 3)
     loading = np.unique(difference[:, 0])
     groups = [
         np.sum(
@@ -128,17 +129,18 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
     confidence = [confidence_interval(np.array([g]).transpose(),
                                       quantile=.5)[0]
                   for g in groups]
-    plt.plot(60 * loading, [np.mean((g)) for g in groups])
+    plt.plot(loading, [np.mean((g)) for g in groups])
     m0, b0, r0, p0, e0 = scipy.stats.linregress(loading,
                                                 [c0 for c0, c1 in
                                                  confidence])
     m1, b1, r1, p1, e1 = scipy.stats.linregress(loading, [c1 for c0, c1
                                                           in
                                                           confidence])
-    plt.plot(60 * loading, m0 * loading + b0,
+    plt.plot(loading, m0 * loading + b0,
              alpha=.75 * abs(r0) * (1 - p0), lw=e0)
-    plt.plot(60 * loading, m1 * loading + b1,
+    plt.plot(loading, m1 * loading + b1,
              alpha=.75 * abs(r1) * (1 - p1), lw=e1)
+    print(abs(r0) * (1 - p0), abs(r1) * (1 - p1))
 
 
 def plot_tvl2(dataset, cols, name, ax, quantile=.5):

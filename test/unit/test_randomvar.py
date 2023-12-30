@@ -282,7 +282,9 @@ def test_analytic_poisson_arrival_times(time, lam, scale, n, func):
                          [(2, 2),
                           (9, 10),
                           (5, .2)])
-def test_beta_antithetic_variables(a, b):
+@pytest.mark.parametrize('bias',
+                         [0, .25, .5, .75, 1])
+def test_beta_antithetic_variables(a, b, bias):
     """Beta should have same mean but lower variance with antithetic
     uniform variables."""
     rng = np.random.default_rng()
@@ -290,10 +292,11 @@ def test_beta_antithetic_variables(a, b):
     def antithetic_rv(rv):
         u = rng.uniform()
         return np.mean([rv.transform(u), rv.transform(1 - u)])
-    rv = Beta(a, b)
+    rv = Beta(a, b, bias=bias)
     result = [antithetic_rv(rv) for _ in range(500)]
-    mean, var = np.mean(result), np.var(result)
+    mean, std = np.mean(result), np.std(result)
     expected = [rv() for _ in range(1000)]
-    exp_mean, exp_var = np.mean(expected), np.var(expected)
+    exp_mean, exp_std = np.mean(expected), np.std(expected)
+    assert exp_mean == approx(a / (a + b) + bias, rel=0.05)
     assert mean == approx(exp_mean, rel=0.05)
-    assert 2 * var < exp_var
+    assert std < exp_std

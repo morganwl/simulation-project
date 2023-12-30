@@ -56,9 +56,10 @@ def seconds(s):
     return [float(f)/60 for f in s.split(',')]
 
 
-def simulate_batch(experiment, batch_size, antithetic=False):
+def simulate_batch(experiment, batch_size, antithetic=False, rng=None, seed=None):
     """Return an array of results for a batch of trials."""
-    batch = np.empty((batch_size, len(experiment.headers)), dtype=np.float64)
+    if rng is None:
+        rng = np.random.default_rng(seed)
     if antithetic:
         if batch_size % 4:
             logging.warning((
@@ -69,16 +70,19 @@ def simulate_batch(experiment, batch_size, antithetic=False):
         batch = np.empty((batch_size, len(experiment.headers)),
                          dtype=np.float64)
         for i in range(batch_size):
-            group = []
-            u, v = np.random.uniform(), np.random.uniform()
+            group = np.empty((4, len(experiment.headers)), dtype=np.float64)
+            j = 0
+            u, v = rng.uniform(), rng.uniform()
             for p in [u, 1 - u]:
                 for r in [v, 1 - v]:
-                    group.append(
-                        measure(simulate(experiment, uniforms=[p, r]),
-                                experiment.headers, experiment.traffic,
-                                experiment.time_loading))
+                    group[j] = measure(simulate(experiment, uniforms=[p, r]),
+                                       experiment.headers, experiment.traffic,
+                                       experiment.time_loading)
+                    j += 1
             batch[i] = np.mean(group, axis=0)
     else:
+        batch = np.empty((batch_size, len(experiment.headers)),
+                         dtype=np.float64)
         for i in range(batch_size):
             batch[i] = measure(simulate(experiment), experiment.headers,
                                experiment.traffic, experiment.time_loading)
@@ -145,7 +149,7 @@ def main(experiment, numtrials, output, batchsize=40, pert=None, params_cache=No
     while i < numtrials:
         if numtrials - i < batchsize:
             batchsize = numtrials - i
-        batch = simulate_batch(experiment, batchsize)
+        batch = simulate_batch(experiment, batchsize, antithetic=True)
         write_batch(batch, experiment.headers, output)
         trials[i:i+batchsize] = batch
         i += batchsize

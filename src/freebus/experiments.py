@@ -52,14 +52,14 @@ class Routes:
         self.transfers = [Transfer(*t) for t in self.transfers]
         self._init_unloading_pct()
 
-    def reset(self, uniforms):
+    def reset(self, uniforms=None):
         """Reset any per-trial parameters."""
         for rv in ['traffic', 'demand_loading']:
             try:
                 if uniforms:
                     uniform = uniforms[-1]
                 else:
-                    uniform=None
+                    uniform = None
                 getattr(self, rv).reset(uniform)
             except AttributeError:
                 pass
@@ -125,6 +125,7 @@ class Node:
     val: float
     left: 'Node' = None
     right: 'Node' = None
+    black: bool = True
 
 
 class TrafficModel:
@@ -195,7 +196,7 @@ class TrafficModel:
                 node = node.right
         self.time_trees[(route, stop)] = Node(t, val)
 
-    def reset(self, uniform):
+    def reset(self, uniform=None):
         """Reset per-trial values in the traffic model."""
         self.time_trees = {}
         if self.daily_func:
