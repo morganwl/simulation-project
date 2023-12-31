@@ -46,6 +46,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--batchsize', '-b',
                         help='number of trials to perform in a single batch',
                         default=Defaults.batchsize)
+    parser.add_argument('--antithetic', '-t', action='store_true',
+                        help='use antithetic variable sampling')
     parser.add_argument('--params_cache', default=Defaults.params_cache)
     return parser.parse_args()
 
@@ -132,7 +134,8 @@ def confidence_interval(trials, rng=None, confidence=.95, quantile=.5):
     return intervals
 
 
-def main(experiment, numtrials, output, batchsize=40, pert=None, params_cache=None):
+def main(experiment, numtrials, output, batchsize=40, pert=None, params_cache=None,
+         antithetic=False):
     """Performs trials and appends the results for each to an output csv."""
     rng = np.random.default_rng()
     if params_cache is not None:
@@ -149,7 +152,7 @@ def main(experiment, numtrials, output, batchsize=40, pert=None, params_cache=No
     while i < numtrials:
         if numtrials - i < batchsize:
             batchsize = numtrials - i
-        batch = simulate_batch(experiment, batchsize, antithetic=True)
+        batch = simulate_batch(experiment, batchsize, antithetic=antithetic)
         write_batch(batch, experiment.headers, output)
         trials[i:i+batchsize] = batch
         i += batchsize
@@ -176,4 +179,4 @@ def cli_entry():
     print(options.pert)
     main(experiment, options.numtrials, options.output,
          batchsize=options.batchsize, pert=options.pert,
-         params_cache=options.params_cache)
+         params_cache=options.params_cache, antithetic=options.antithetic)

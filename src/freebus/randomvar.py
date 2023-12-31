@@ -39,9 +39,8 @@ class RandomVar:
         scalar value if n is None."""
         raise NotImplementedError
 
-    def expected(self, *args):
-        """Returns the expected (mean) value for any given
-        parameters."""
+    def expected(self, *params, scale=1):
+        """Return the expected value for some parameters."""
         raise NotImplementedError
 
     def sum_arrivals(self, n, scale, time=None):
@@ -75,13 +74,18 @@ class Fixed(RandomVar):
             return np.ones(n) * result
         return result
 
-    def expected(self, *args):
-        """Returns the expected value for any given parameters."""
-        return self.mean[tuple(args[:self._dim])]
+    def expected(self, *params, scale=1):
+        """Return the expected value for some given parameters."""
+        return self.mean[tuple(params[:self._dim])]
 
-    def sum_arrivals(self, n, t, time=None):
-        """Returns the sum of arrival times, given n arrivals over time t."""
+    def sum_arrivals(self, n, scale):
+        """Return the sum of arrival times, given n arrivals over time t."""
         return sum(i * t/(n+1) for i in range(1, n+1))
+
+    def arrivals(self, alpha, beta, *params):
+        """Return arrivals and sum of arrival times."""
+        n = self(*params, beta, scale=beta - alpha)
+        return n, self.sum_arrivals(n, beta - alpha)
 
 
 @auto_repr
@@ -101,13 +105,18 @@ class FixedAlternating(RandomVar):
         self.mean[tuple(args[:self._dim])] = np.roll(values, 1)
         return values[-1]
 
-    def expected(self, *args):
-        """Returns the expected value for any given parameters."""
-        return np.mean(self.mean[tuple(args[:self._dim])])
+    def expected(self, *params, scale=1):
+        """Return the expected value for any given parameters."""
+        return np.mean(self.mean[tuple(params[:self._dim])])
 
     def sum_arrivals(self, n, scale, time=None):
-        """Returns the sum of arrival times, given n arrivals over time t."""
+        """Return sum of arrival times, given n arrivals over an interval."""
         return sum(i * scale/(n+1) for i in range(1, n+1))
+
+    def arrivals(self, alpha, beta, *params):
+        """Return arrivals and sum of arrival times."""
+        n = self(*params, beta, scale=beta - alpha)
+        return n, self.sum_arrivals(n, beta - alpha)
 
     def __repr__(self):
         return (f'{type(self).__name__}({np.array_str(self.mean)})'
@@ -133,13 +142,18 @@ class Pois(RandomVar):
             rate = scale * mean
         return self._rng.poisson(self._daily_scale * rate, size=n)
 
-    def expected(self, *args):
-        """Returns the expected value for any given parameters."""
-        mean = self.mean[tuple(args[:self._dim])]
+    def expected(self, *params, scale=1):
+        """Return the expected value for any given parameters."""
+        mean = self.mean[tuple(params[:self._dim])]
         try:
-            return mean(*args[self._dim:])
+            return mean(*params[self._dim:]) * scale
         except TypeError:
-            return mean
+            return mean * scale
+
+    def arrivals(self, alpha, beta, *params):
+        """Return arrivals with sum of arrival times."""
+        n = self(*params, beta, scale=beta - alpha)
+        return n, self.sum_arrivals(n, beta - alpha, time=beta)
 
     def sum_arrivals(self, n, scale, time=None):
         """Returns the sum of arrival times, given n arrivals over time t."""
@@ -171,14 +185,15 @@ class TimeVarPois(RandomVar):
         self._rng = np.random.default_rng(seed=seed)
         self._arrivals = [None, None, None, None]
 
-    def expected(self, *args):
-        """Returns the expected value for any given parameters."""
+    def expected(self, *args, scale=1):
+        """Return the expected value for any given parameters."""
         mean = self.mean[tuple(args[:self._dim])]
-        time_scale = self.time_func(args[-1])
+        time = args[-1]
         try:
-            return mean(*args[self._dim:]) * time_scale
+            mean = mean(*args[self._dim:])
         except TypeError:
-            return mean * time_scale
+            pass
+        return mean * self.time_func(time, scale=scale)
 
     def __call__(self, *args, scale=1, n=None):
         if scale == 0:
@@ -214,6 +229,30 @@ class TimeVarPois(RandomVar):
             self._arrivals = [None, None, None, None]
             return result
         return self.time_func.sum_arrivals(time - scale, time, n)
+
+    def arrivals(self, alpha, beta, *args, n=None):
+        """Return arrivals with sum of relative arrival times.
+
+        Return a discrete number of arrivals, over the time interval
+        (alpha, beta], along with the sum of their arrival times,
+        relative to beta."""
+        mean = self.mean[tuple(args[:self._dim])]
+        try:
+            mean = mean(*args[self._dim:])
+        except TypeError:
+            pass
+
+        time_coefs = self.time_func.components(beta, scale=beta - alpha)
+        if n:
+            n = (n, len(time_coefs))
+        components = self._rng.poisson(time_coefs
+                                       * self._daily_scale
+                                       * mean,
+                                       size=n)
+        arrivals = np.sum(components, axis=-1)
+        return arrivals, self.time_func.arrival_components(alpha, beta,
+                                                           components,
+                                                           time_coefs)
 
     def reset(self, uniform=None):
         """Generates new daily scale from daily_func, if one has been

@@ -8,7 +8,7 @@ import numpy as np
 
 from freebus.randomvar import Fixed, FixedAlternating, Pois, Pert, \
     TimeVarPois, IndicatorKernel, GammaTimeFunc, \
-    BetaTimeFunc, SumOfDistributionKernel, Beta
+    BetaTimeFunc, SumOfDistributionKernel, Beta, Gamma
 
 
 def test_fixed_rv():
@@ -300,3 +300,43 @@ def test_beta_antithetic_variables(a, b, bias):
     assert exp_mean == approx(a / (a + b) + bias, rel=0.05)
     assert mean == approx(exp_mean, rel=0.05)
     assert std < exp_std
+
+
+@pytest.mark.parametrize('rv',
+                         [Pois(1),
+                          Pois(5),
+                          TimeVarPois(125, time_func=SumOfDistributionKernel(
+                              [BetaTimeFunc(1.5, 3, area=0.5),
+                               BetaTimeFunc(8, 4, area=0.5),])),
+                          ])
+@pytest.mark.parametrize(['alpha', 'beta'],
+                         [(al, al + delta)
+                          for delta in [15, 30]
+                          for al in [8*60, 12*60, 18*60]])
+def test_arrivals_with_times(rv, alpha, beta):
+    """Test arrivals method of random variables.
+
+    The arrivals method should return a discrete number of arrivals over
+    a (alpha, beta] time interval, along with the real-valued sum of
+    their arrival times, relative to beta.
+    """
+    n = int(np.round(rv.expected(beta, scale=beta-alpha)))
+
+    def arrivals():
+        arr, sum_times = rv.arrivals(alpha, beta)
+        while arr != n:
+            arr, sum_times = rv.arrivals(alpha, beta)
+        return arr, sum_times
+
+    def exp_arrivals():
+        arr = rv(beta, scale=beta - alpha)
+        while arr != n:
+            arr = rv(beta, scale=beta - alpha)
+        return arr, rv.sum_arrivals(arr, beta-alpha, beta)
+
+    result = [arrivals()[1] for _ in range(500)]
+    expected = [exp_arrivals()[1] for _ in range(500)]
+    assert np.mean(result).tolist() == approx(
+        np.mean(expected).tolist(), rel=0.1)
+    assert np.var(result).tolist() == approx(
+        np.var(expected).tolist(), rel=0.2)

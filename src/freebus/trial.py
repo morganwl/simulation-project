@@ -121,19 +121,16 @@ class Trial:
         stop = self.stops[bus.route][bus.stop]
         delta = bus.time - stop.last_load
 
-        ##### DEBUGGING FOR NOW #####
-        try:
-            assert delta >= 0
-        except AssertionError:
-            print(bus, stop, delta)
-            raise
-        #############################
-
-        n = self.experiment.demand_loading(bus.route, bus.stop,
-                                           bus.time, scale=delta)
-        t = (self.experiment.demand_loading.sum_arrivals(n, delta,
-                                                         time=bus.time)
-             + delta * stop.waiting)
+        n, t = self.experiment.demand_loading.arrivals(stop.last_load,
+                                                       bus.time,
+                                                       bus.route,
+                                                       bus.stop)
+        t += delta * stop.waiting
+        # n = self.experiment.demand_loading(bus.route, bus.stop,
+        #                                    bus.time, scale=delta)
+        # t = (self.experiment.demand_loading.sum_arrivals(n, delta,
+        #                                                  time=bus.time)
+        #      + delta * stop.waiting)
         stop.last_load = bus.time
 
         for transfer in self.experiment.get_transfers_to(bus.route,
