@@ -119,6 +119,9 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
     subtrahend = np.random.permutation(minuend)
     difference = minuend - subtrahend
     difference[:, 0] = np.round(difference[:, 0], 3)
+    difference[difference[:, 0] < 0, :] = -difference[difference[:, 0] < 0, :]
+    # -(
+    #     difference[difference[:, 0] < 0, [False] + [True] * 4])
     loading = np.unique(difference[:, 0])
     groups = [
         np.sum(
@@ -129,19 +132,23 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
     confidence = [confidence_interval(np.array([g]).transpose(),
                                       quantile=.5)[0]
                   for g in groups]
-    plt.plot(loading, [np.mean((g)) for g in groups])
+    ax.plot(loading, [np.mean((g)) for g in groups])
     m0, b0, r0, p0, e0 = scipy.stats.linregress(loading,
                                                 [c0 for c0, c1 in
                                                  confidence])
     m1, b1, r1, p1, e1 = scipy.stats.linregress(loading, [c1 for c0, c1
                                                           in
                                                           confidence])
-    plt.plot(loading, m0 * loading + b0,
-             alpha=.75 * abs(r0) * (1 - p0))
-    plt.plot(loading, m1 * loading + b1,
-             alpha=.75 * abs(r1) * (1 - p1))
-    print(abs(r0) * (1 - p0), abs(r1) * (1 - p1))
-    print(m0 * loading + b0)
+    ax.plot(loading, m0 * loading + b0,
+            alpha=.75 * abs(r0) * (1 - p0))
+    ax.plot(loading, m1 * loading + b1,
+            alpha=.75 * abs(r1) * (1 - p1))
+    max_mean = np.mean(groups[-1])
+    max_confidence = max(confidence[-1][1] - max_mean,
+                         max_mean - confidence[-1][0])
+    ax.title.set_text('change in travel time vs change in loading time\n'
+                      f'{np.max(loading)} seconds:{max_mean:5.1f} minutes '
+                      f'+/- {max_confidence:.2f} minutes')
 
 
 def plot_tvl2(dataset, cols, name, ax, quantile=.5):

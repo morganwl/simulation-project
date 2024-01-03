@@ -34,9 +34,12 @@ class RandomVar:
     """A callable object initialized with specific values."""
 
     def __call__(self, *args, scale=1, n=None):
-        """Returns the value at a given set of parameters, optionally
-        scaled. Returns an array of n samples of the same variable, or a
-        scalar value if n is None."""
+        """Return the value at a given set of parameters.
+
+        Return the value at a given set of parameters, optionally
+        applying a scaling factor. Return an array of n samples of the
+        same variable, or a scalar value if n is None.
+        """
         raise NotImplementedError
 
     def expected(self, *params, scale=1):
@@ -44,16 +47,19 @@ class RandomVar:
         raise NotImplementedError
 
     def sum_arrivals(self, n, scale, time=None):
-        """Given n arrivals over time t, returns the sum of arrival
-        times."""
+        """Return the sum of arrival times over an interval.
+
+        Return the sum of arrival times over an interval of length
+        scale, relative to the end of that interval.
+        """
         raise NotImplementedError
 
     def distribute_time(self, n, t):
         """
-        Deprecated. See sum_arrivals instead.
+        See sum_arrivals instead.
 
         Given n arrivals over time t, returns the sum of arrival
-        times.
+        times. Deprecated.
         """
         warn('Use sum_arrivals instead.', DeprecationWarning)
         return self.sum_arrivals(n, t)
@@ -235,14 +241,15 @@ class TimeVarPois(RandomVar):
 
         Return a discrete number of arrivals, over the time interval
         (alpha, beta], along with the sum of their arrival times,
-        relative to beta."""
+        relative to beta.
+        """
         mean = self.mean[tuple(args[:self._dim])]
         try:
             mean = mean(*args[self._dim:])
         except TypeError:
             pass
 
-        time_coefs = self.time_func.components(beta, scale=beta - alpha)
+        time_coefs = self.time_func.components(alpha, beta)
         if n:
             n = (n, len(time_coefs))
         components = self._rng.poisson(time_coefs
@@ -385,15 +392,13 @@ class SumOfDistributionKernel:
     def __call__(self, t, scale=1):
         return np.sum([f(t) - f(t - scale) for f in self.funcs])
 
-    def components(self, t, scale=1):
-        """Returns the unsummed values of the component functions over a
-        given interval."""
-        return np.fromiter((f(t) - f(t - scale) for f in self.funcs),
+    def components(self, alpha, beta):
+        """Return the raw component values over a given interval."""
+        return np.fromiter((f(beta) - f(alpha) for f in self.funcs),
                            dtype=np.float64, count=len(self.funcs))
 
     def arrival_components(self, alpha, beta, components, coefs):
-        """Returns the sum of arrivals as generated from a poisson rv
-        for each component function."""
+        """Return sum of arrival times from multiple poisson components."""
         return sum(n * beta - np.sum(f.inverse(
             p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
             for n, f, p in zip(components, self.funcs, coefs))
@@ -478,14 +483,12 @@ class BetaTimeFunc:
         self._rv = scipy.stats.beta(a, b)
 
     def scale_input(self, t):
-        """Scales an input in minutes to a fraction of a day in
-        [0,1]."""
-        t = t / 24 / 60
-        return t
+        """Scales an input in minutes to a fraction of a day."""
+        return t / 1440
 
     def scale_output(self, p):
         """Scales a fraction of a day in [0,1] to a time in minutes."""
-        return p * 24 * 60
+        return p * 1440
 
     def __call__(self, t):
         if self.pdf:
@@ -493,14 +496,13 @@ class BetaTimeFunc:
         return self._rv.cdf(self.scale_input(t)) * self.area
 
     def _pdf(self, t):
-        """Returns the probability density function at time t."""
+        """Return the probability density function at time t."""
         return self._rv.pdf(self.scale_input(t)) * self.area
 
     def inverse(self, u):
-        """Returns the correspondin time t for the unscaled probability
-        u."""
+        """Return the corresponding time t for the probability u."""
         return self.scale_output(self._rv.ppf(u))
 
     def cdf(self, t):
-        """Returns the unscaled cumulative probability for time t."""
+        """Return the unscaled cumulative probability for time t."""
         return self._rv.cdf(self.scale_input(t))
