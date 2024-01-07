@@ -399,9 +399,12 @@ class SumOfDistributionKernel:
 
     def arrival_components(self, alpha, beta, components, coefs):
         """Return sum of arrival times from multiple poisson components."""
-        return sum(n * beta - np.sum(f.inverse(
-            p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
-            for n, f, p in zip(components, self.funcs, coefs))
+        # return sum(n * beta - np.sum(f.inverse(
+        #     p / f.area * self._rng.uniform(size=n) + f.cdf(alpha)))
+        #     for n, f, p in zip(components, self.funcs, coefs))
+        for n, f, p in zip(components, self.funcs, coefs):
+            u = self._rng.uniform(size=n)
+
 
     @lru_cache
     def _cdf(self, t):

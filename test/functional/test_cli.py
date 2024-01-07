@@ -5,6 +5,7 @@ import sys
 
 import freebus as fb
 
+
 def test_appends_csv(monkeypatch, tmpdir):
     """Tests that an entry is written to csv for each of the specified
     trials."""

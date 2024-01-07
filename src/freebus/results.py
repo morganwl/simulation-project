@@ -146,9 +146,14 @@ def plot_tvl3(dataset, cols, name, ax, quantile=.5):
     max_mean = np.mean(groups[-1])
     max_confidence = max(confidence[-1][1] - max_mean,
                          max_mean - confidence[-1][0])
+    con_mean = np.mean(groups[10])
+    con_con = max(confidence[10][1] - con_mean,
+                  con_mean - confidence[10][0])
     ax.title.set_text('change in travel time vs change in loading time\n'
                       f'{np.max(loading)} seconds:{max_mean:5.1f} minutes '
-                      f'+/- {max_confidence:.2f} minutes')
+                      f'+/- {max_confidence:.2f} minutes\n'
+                      f'{loading[10]} seconds:{con_mean:5.1f} minutes '
+                      f'+/- {con_con:.2f} minutes\n')
 
 
 def plot_tvl2(dataset, cols, name, ax, quantile=.5):

@@ -1,17 +1,21 @@
 \documentclass[12pt]{article}
 \usepackage{amsfonts, amsmath, fancyhdr}
+\usepackage{mathtools}
 
-\pagestyle{fancy}
 
-\topmargin = -0.8 in
+% \topmargin = -0.85 in
 \oddsidemargin = 0.0 in
 \evensidemargin = 0.0 in
-\textheight = 9 in
+% \textheight = 9 in
 \textwidth = 6.5 in
+
+\pagestyle{fancy}
 
 \newtheorem{theorem}{Theorem}
 \newtheorem{result}{Result}
 \newtheorem{definition}{Defintion}
+
+\newcommand{\Prob}{\mathbb P}
 
 \title{}
 \author{Morgan Wajda-Levie}
@@ -72,13 +76,14 @@ accessibility ramps.
 
 \section{Conclusions and Recommendations}
 
-Over the course of \textbf{some number} of trials, our experiment showed a decrease
-in travel time of 28 minutes, when the mean boarding time was decreased by 20
-seconds per passenger. However, with a more conservative estimate, based on
-informal observations, we prefer to predict a 10 second decrease in per
-passenger boarding time, saving 19 minutes of travel time per trip, a 9\%
+Over the course of 3156 trials, our experiment showed a decrease
+in travel time of $25 \left(\pm 1.31\right)$ minutes, when the mean boarding
+time was decreased by 19 seconds per passenger. However, with a more
+conservative estimate, based on informal observations, we prefer to predict a
+10 second decrease in per passenger boarding time, saving
+$12.7 \left(\pm0.40\right)$ minutes of travel time per trip, a 9\%
 improvement over observed travel times. With 1 million daily bus trips, this
-would result in the recovery of 315,000 hours every day.
+would result in the recovery of 212,000 hours every day.
 
 While we recommend this improvement without reservation, we had hoped to
 observe more secondary improvements. Instead, we observed a strictly linear
@@ -93,6 +98,7 @@ the moment the bus arrived at that passenger's destination. (Because changes
 to disembarking time were not under review, we only credited unloading time to
 passengers \emph{on} the bus, not those in the process of leaving.)
 
+\subsection{Assumptions}
 In constructing our model, we made a number of simplifying assumptions.
 \begin{itemize}
     \item Passengers arrive at stops independently of each other, in
@@ -112,24 +118,144 @@ In constructing our model, we made a number of simplifying assumptions.
     \item Buses are only scheduled at the beginning of their route.
 \end{itemize}
 
-For some $i$th passenger, this trip time is measured as the sum
+\subsection{Measuring the average travel time}
+
+Letting $T_i$ be the total travel time for the $i$th passenger, and $N$ the
+total number of passengers, we can find the mean travel time,
 \[
-    w_i + l_i + b_i
+    \overline{T} = \frac{1}{N}\sum_i^N T_i
 \].
 
-where $w, l, b$ are waiting time, boarding time, and on-bus time,
-respectively.
+For some $i$th passenger, we can partition the travel time $T_i$ into three
+components, waiting time, loading time, and moving time,
+\[
+    T_i = W_i + L_i + M_i
+\]
+While waiting time is dependent on the arrival time of each individual
+passenger, we can observe that loading time and moving time are experienced by
+every passenger on the bus or currently waiting to board the bus. Furthermore,
+we can observe that the number of passengers remains constant between stops,
+meaning that we can measure a single $N^B_{b,s}$ as the number of passengers
+on bus $b$ between stop $s$ and $s+1$, and that this number will include all
+of those passengers who boarded at stop $s$.
 
-$w_i$ is the difference of the time that the $i$th passenger arrives at stop
-$s$, from the time that the bus arrives at stop $s$. The passengers arrival
-time, in turn, is conditioned upon the arrival rate, $\lambda_{s,t}$, for a
-stop $s$ at time $t$, or, more precisely, over the interval $t_\alpha,
-t_\beta$, during which a passenger could have arrived. The bus's arrival time
-is conditioned upon the time the bus left stop $s-1$ and traffic conditions
-beteen $s-1$ and $s$.
+Because buses and trip segments and all distinct entities, we can partition,
+\[
+    \sum_i^N T_i = \sum_i^N W_i + \sum_b^B \sum_s^S N^B_{b,s} \left(L^B_{b,s}
+        M^B_{b,s}\right)
+\]
 
-The departure of a bus from stop $s-1$ is dependent on the time spent loading
-and unloading passengers at stop $s-1$, and the bus's arrival time at $s-1$.
+Our simulation measures, for discrete time intervals, the number of passengers
+on or boarding each bus $b \in B$ at every stop $s \in S$ of its journey, the
+length of those time intervals, and the \emph{sum} time spent by each
+passenger waiting for bus $b$ at stop $s$.
+
+\subsection{Generating random variables}
+
+\subsubsection{Passenger arrivals}
+
+Passengers arrive at stop $s \in S$ according to a Poisson process, meaning
+that the total expected passengers within any given time interval is known,
+but the precise arrival times of individual passengers are randomly
+distributed within those time intervals. We measure these arrival rates as
+$\lambda_s$.
+
+Because our goal is to measure bus performance over an entire day, passengers
+arrive at different rates, depending on the time of day. Therefore,
+$\lambda_{s,(t_0,t_1)}$ must be a function of time. Using hourly passenger
+counts recorded by the New York Transit Company, we found that the sum of two
+\emph{beta} distributions effectively captured the distribution of passengers
+over the course of a day, with one sharply concentrated distribution during
+morning rush hour and one more less concentrated distribution during afternoon
+rush hours.
+
+We estimated these morning and evening rush hours according to the following
+distributions,
+\begin{align*}
+    Y &\sim Beta(6, 14)\\
+    V &\sim Beta(4, 2)\\
+\end{align*}
+For simplicity, we kept these distributions constant across across stops.
+
+Letting $f_Y(t_D), f_V(t_D)$ be the probability density functions of our rush hour
+distributions, where $t_D \in \mathbb R_{[0, 1]}$ is the fraction of the
+elapsed day at time $t$, we can measure,
+\[
+    \lambda_{s,(t_0, t_1]} = \frac{1}{2}\lambda_s\int_{t_{0,D}}^{t_{1,D}} f_Y(t_D) +
+    f_V(t_D) dt_V
+\].
+(The constant $\frac{1}{2}$ allows the sum of the two functions, when
+integrated over an entire day, to equal 1.)
+
+This integral is equal to the difference of the \emph{cumulative distribution
+function}, $F(t_D)$ at times $t_1$ and $t_0$.
+
+Finally, because various conditions can lead to particularly active or
+inactive days within the city, we introduced a \emph{daily scale} variable,
+generated once per simulation,
+\[
+    k \sim Beta(5, 5) + \frac{1}{2}
+\].
+
+Therefore, if some bus $b \in B$ arrives at stop $s \in S$ at time $t_1$, and
+the last bus to load passengers from stop $s$ closed its doors at $t_0$, the
+passengers waiting for bus $b$ at time $t_1$ will be,
+\[
+    N^W_{s,t_1} \sim Pois\left(\frac{1}{2}\lambda_s k \left(F(t_{1,D}) -
+    F(t_{0,D})\right)\right)
+\]
+
+We can now generate this Poisson random variable using traditional methods.
+(For this simulation, we chose to use numpy's random number generator
+functions.)
+
+\subsubsection{Passenger wait times}
+
+We have one step before we can load passengers onto bus $b \in B$, which is to
+measure the sum of the wait times for the passengers waiting at the stop at
+time $t_1$.
+
+Because passengers arrive according to an \emph{inhomogeneous} Poisson
+process, their arrival times are not uniformly distributed within a given time
+interval. We must instead determine the conditional probability of a
+passenger's arrival at some time between the departure of the previous bus and
+the arrival of the current, and generate arrival times according to that
+distribution. If we can find the inverse of the cumulative density function
+for this conditional probability, we can generate these times using an inverse
+transform method.
+
+We can calculate the likelihood of a passenger arriving between time 
+$(t_0, t_*]$, given that the passenger arrives during the interval
+$(t_0, t_1]$,
+\begin{align*}
+    \Prob[t_0 < t \le t_* \mid t_0 < t \le t_1] &= \frac{\Prob[t_0 < t \le t_*]}{\Prob[t_0 <
+    t \le t_1]}\\
+                                                &= \frac{F_Y(t_*) - F_Y(t_0) +
+                                                F_V(t_*) - F_V(t_0)}
+                                                {F_Y(t_1) - F_Y(t_0) +
+                                                F_V(t_1) - F_V(t_0)}
+\end{align*}
+
+Ideally, we would generate some uniform variable $u \sim U(0, 1)$ and map that
+probability to some value $t_*$, but, because $u$ is derived from the
+combination of two non-linear functions, calculating this inverse is not easy.
+We can, however, simplify our task by considering passengers arriving
+according to each function separately.
+
+If a passenger arrives according to distribution $Y$,
+\begin{align*}
+    \Prob[t_0 < t \le t_* \mid t_0 < t \le t_1]
+    &= \frac{F_Y(t_*) - F_Y(t_0)}{F_Y(t_1) - F_Y(t_0)}\\
+    \shortintertext{Letting $u \in [0, 1]$ be this probability,}
+    u
+    &= \frac{F_Y(t_*) - F_Y(t_0)}{F_Y(t_1) - F_Y(t_0)}\\
+    \left(F_Y(t_1) - F_Y(t_0)\right)u + F_Y(t_0)
+    &= F_Y(t_*)\\
+    {F_Y}^{-1}\left(\left(F_Y(t_1) - F_Y(t_0)\right)u + F_Y(t_0)\right)
+    &= t_*
+\end{align*}
+
+
 
 \section{General Discussion}
 
