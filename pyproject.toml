@@ -12,8 +12,8 @@ dependencies = [
 
 [project.scripts]
 fbsimulate = 'freebus:main.cli_entry'
-fbtabulate = 'freebus:results.cli_entry'
-fbexperiment = 'freebus:pert_sampler.cli_entry'
+fbplot = 'freebus:results.cli_entry'
+fbseries = 'freebus:pert_sampler.cli_entry'
 
 [tool.pylint.main]
 ignore-patterns = ["^\\.#"]

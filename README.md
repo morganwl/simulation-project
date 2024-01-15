@@ -1,4 +1,83 @@
-# Modeling and Simulation Final Project
+# Freebus
+
+Freebus performs simulations of bus performance under varying passenger
+boarding times.
+
+The program was submitted as a final project for a Masters course in
+Stochastic Modeling and Simulation at Hunter College.
+
+## Features
+
+- Passenger demand varies over the course of a day according to one or
+  more arrival distributions.
+- Traffic varies over the course of the day.
+- Includes support for multiple bus-lines, with transfers.
+- Saves results to disk and generates plots for a number of
+  measurements.
+- Reports confidence intervals based on recorded data.
+- Fully configurable experimental parameters with Python configuration
+  file.
+
+## Requirements
+
+- Python3, tested on 3.10.12
+
+## Installation
+
+### Automated
+
+A provided setup script will create an isolated virtual Python
+environment and install the freebus, with all of its dependencies,
+within this environment. Requires a MacOS or Unix-like environment.
+
+In a terminal application of your choice:
+
+```
+git clone https://github.com/morganwl/simulation-project
+cd simulation-project
+./setup.sh
+```
+
+### Manual
+
+The package can be built by hand and installed into an environment of
+your choosing. In a terminal application of your choice:
+```
+git clone https://github.com/morganwl/simulation-project
+cd simulation-project
+python3 -m build
+```
+
+This will generate a package file in `dist`.
+
+## Usage
+
+If you have installed `freebus` into a virtual environment, you will
+want to *activate* that environment.
+```
+cd simulation-project
+source venv/bin/activate
+```
+
+You can now run the command `fbsimulate` to perform a series of trials:
+```
+fbsimulate -x brooklyn -n 5
+```
+This will run 5 trials of the *brooklyn* experiment, saving the results
+in the `results` directory. Results will continue to be appended to the
+same csv file for all future invocations of `fbsimulate`, *unless you
+change the builtin experimental parameters*.
+
+Once you have generated a satisfactory amount of results, you can
+generate plots using the `fbplot` command:
+```
+fbplot brooklyn --name brooklyn
+```
+This will look for the latest version of the *brooklyn* experiment, and
+generate figures labaled `brooklyn_<figure name>.png`.
+
+A third script, `fbseries` will run trials with a range of passenger
+boarding time distributions.
 
 ## Assumptions
 
@@ -74,10 +153,3 @@ Our overall model makes the following assumptions and simplifications:
   - [X] fix unloading rate percentage calculations
   - [-] plot bus line variances
   - [-] scheduled departure time and intermediate stops
-- [ ] 0.6.0 algorithmic efficieny
-  - [ ] only visit priority queue before wait and wait-transfer events
-  - [ ] split lines into separate queues and only break at stops with a
-    transfer
-  - [ ] balance traffic tree on insertions
-  - [ ] analytically solve arrival sums at TimeVarPois level
-  

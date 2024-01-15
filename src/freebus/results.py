@@ -18,12 +18,14 @@ COLS = 2
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description=__name__)
+    parser = argparse.ArgumentParser(
+        description='generate plots from saved data')
     parser.add_argument('input', nargs='+')
-    parser.add_argument('--params_cache', default=Defaults.params_cache)
-    parser.add_argument('--name', '-n')
+    parser.add_argument('--name', '-n',
+                        description='filename prefix for plots')
     parser.add_argument('--dir', '-d', type=Path,
-                        default='figures')
+                        default='figures',
+                        description='target path for plots')
     return parser.parse_args()
 
 
