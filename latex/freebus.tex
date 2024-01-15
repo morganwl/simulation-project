@@ -1,21 +1,45 @@
 \documentclass[12pt]{article}
-\usepackage{amsfonts, amsmath, fancyhdr}
+
+\usepackage{biblatex}
+\addbibresource{simulation.bib}
+
+\usepackage{amsfonts, amsmath, fancyhdr, amsthm}
 \usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage[%
+textwidth=6.5in, textheight=9in,
+% paperwidth=7.5in, paperheight=9in, textheight=7.75in,%
+top=.65in]%
+{geometry}
+\usepackage{graphicx}
+\graphicspath{{../figures/}}
 
-
-% \topmargin = -0.85 in
-\oddsidemargin = 0.0 in
-\evensidemargin = 0.0 in
-% \textheight = 9 in
-\textwidth = 6.5 in
+\setlength{\headheight}{15pt}
 
 \pagestyle{fancy}
 
 \newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\theoremstyle{definition}
 \newtheorem{result}{Result}
-\newtheorem{definition}{Defintion}
+\newtheorem{definition}{Definition}
 
 \newcommand{\Prob}{\mathbb P}
+\DeclareMathOperator{\Exp}{\mathbb E}
+\DeclareMathOperator{\Pois}{Pois}
+\DeclareMathOperator{\Binom}{Binom}
+\DeclareMathOperator{\Beta}{Beta}
+\DeclareMathOperator{\Gam}{Gamma}
+\DeclareMathOperator{\B}{B}
+\DeclareMathOperator{\F}{\mathbb F}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathSymbol{\shortminus}{\mathbin}{AMSa}{"39}
+\newcommand{\inv}[1]{#1^{\shortminus 1}}
+\newcommand{\CITE}{{\bfseries [MISSING]}}
+
+\algnewcommand\algorithmicgenerate{\textbf{generate}}
+\algnewcommand\Generate{\algorithmicgenerate{} }
 
 \title{}
 \author{Morgan Wajda-Levie}
@@ -33,14 +57,15 @@ making public transit a more attractive alternative to environmentally
 hazardous private automobiles. We asked the question, what if we could make
 our buses faster by eliminating a costly loading bottleneck at every stop?
 Through a simulated model of two Brooklyn bus lines, we show that removing
-on-bus fare collection could save as much as \textbf{one hour} of average
+on-bus fare collection could save as much as 25 minutes of average
 travel time for each bus trip.
 
 \section{Introduction and Background}
 
 In 2019, before the Covid-19 pandemic, New York City Transit provided, on
 average, more than 1.77 million bus rides every weekday. While ridership fell
-in 2020, 2022 ridership was measured at 1,094,415 daily rides\cite{mta}.
+in 2020, 2022 ridership was measured at 1,094,415 daily
+rides\cite{mta_2022NYCT_2022}.
 Shortening the average bus trip by one minute would, collectively save
 181,000 hours every day.
 
@@ -77,13 +102,53 @@ accessibility ramps.
 \section{Conclusions and Recommendations}
 
 Over the course of 3156 trials, our experiment showed a decrease
-in travel time of $25 \left(\pm 1.31\right)$ minutes, when the mean boarding
+in travel time of $25 \left(\pm 1.24\right)$ minutes, when the most likely
+boarding
 time was decreased by 19 seconds per passenger. However, with a more
 conservative estimate, based on informal observations, we prefer to predict a
 10 second decrease in per passenger boarding time, saving
-$12.7 \left(\pm0.40\right)$ minutes of travel time per trip, a 9\%
+$12.9 \left(\pm0.41\right)$ minutes of travel time per trip, a 9\%
 improvement over observed travel times. With 1 million daily bus trips, this
 would result in the recovery of 212,000 hours every day.
+
+\begin{figure}
+    \centering
+    \hfill%
+    \begin{minipage}[t]{.45\linewidth}
+            \includegraphics[width=\textwidth]{brooklyn_}
+            \caption{Difference in travel time plotted against difference in most
+            likely loading time, with confidence lines.}
+            \label{fig:change}
+    \end{minipage}%
+    \hfill%
+    \begin{minipage}[t]{.45\linewidth}
+        \includegraphics[width=\textwidth]{brooklyn_travel_time_vs_boarding_time_alt}
+        \caption{Mean travel time plotted against most likely boarding time,
+        with confidence intervals.}
+        \label{fig:travelvloading}
+    \end{minipage}
+    \hfill
+
+    \hfill%
+    \begin{minipage}[t]{.45\linewidth}
+        \includegraphics[width=\textwidth]{brooklyn_passengers_per_hour}
+        \caption{Mean passengers per hour.}
+        \label{fig:passengers}
+    \end{minipage}%
+    \hfill%
+    \begin{minipage}[t]{.45\linewidth}
+        \includegraphics[width=\textwidth]{brooklyn_traffic_per_hour}
+        \caption{Mean traffic per hour.}
+        \label{fig:traffic}
+    \end{minipage}%
+    \hfill
+
+    \begin{minipage}[t]{.45\linewidth}
+        \includegraphics[width=\textwidth]{brooklyn_loading_time_distributions}
+        \caption{Three sample loading time distributions.}
+        \label{fig:loading}
+    \end{minipage}%
+\end{figure}
 
 While we recommend this improvement without reservation, we had hoped to
 observe more secondary improvements. Instead, we observed a strictly linear
@@ -116,147 +181,800 @@ In constructing our model, we made a number of simplifying assumptions.
     \item Buses are assumed to operate without accident or otherwise disabling
         incident.
     \item Buses are only scheduled at the beginning of their route.
+    \item Buses can accommodate all passengers at a stop, with slower loading
+        times as the number of passengers on a bus increases.
 \end{itemize}
 
 \subsection{Measuring the average travel time}
 
-Letting $T_i$ be the total travel time for the $i$th passenger, and $N$ the
-total number of passengers, we can find the mean travel time,
-\[
-    \overline{T} = \frac{1}{N}\sum_i^N T_i
-\].
+\begin{definition}[total travel time per passenger]
+    \hfill\par\nopagebreak
+    Let $T_i$ be the total travel time of the $i$th passenger, and $N$ be the
+    total number of passengers.
 
-For some $i$th passenger, we can partition the travel time $T_i$ into three
-components, waiting time, loading time, and moving time,
+    Therefore, $\overline{T}$, the mean total travel time, is defined,
+    \[
+        \overline{T} = \frac{1}{N}\sum_{i=1}^N T_i
+    \]
+\end{definition}
+
+\begin{definition}
+    \hfill\par\nopagebreak
+    We can divide $T_i$ into,
+    \begin{align*}
+        &W^P_i&
+        &\text{Time spent waiting at a stop before the passenger's bus
+        arrives,}\\
+        &L^P_i&
+        &\text{Time loading or waiting for others to load,}\\
+        &M^P_i&
+        &\text{Time spent moving, on the bus, between bus stops,}
+    \end{align*}
+    such that,
+    \[
+        T_i = W^P_i + L^P_i + M^P_i.
+    \]
+\end{definition}
+
+\begin{definition}
+    \hfill\par\nopagebreak
+    We can further divide travel times for each passenger into those
+    experienced between discrete \emph{stops} $s \in S$, such that,
+    \begin{align*}
+        &L^P_{i,s}&
+        &\text{Time spent loading or waiting for others to load at stop $s$}\\
+        &M^P_{i,s}&
+        &\text{Time spent moving between stop $s$ and stop $s+1$}.
+    \end{align*}
+\end{definition}
+
+\begin{definition}
+    \hfill\par\nopagebreak
+    Letting $B$ be the set of all buses, we can define,
+    \begin{align*}
+        &L^B_{b,s}&
+        &\text{Time spent waiting for passengers to load by bus $b \in B$ at
+        stop $s\in S$},\\
+        &M^B_{b,s}&
+        &\text{Time spent moving, by bus $b \in B$, from stop $s \in S$ to
+        $s+1$},\\
+        &N^B_{b,s}&
+        &\text{The number of passengers on bus $b \in B$ after loading all
+        passengers at stop $s \in S$}.
+    \end{align*}
+\end{definition}
+
+\begin{theorem}
+    Obtaining measurements for all values of $N^B_{b, s}, L^B_{b,s},
+    M^B_{b,s}, W_i$ is sufficient to measure $\overline{T}$.
+\end{theorem}
+
+\begin{proof}
+    We observe that $L^P_{i,s}, M^P_{i,s} = L^B_{b,s}, M^B_{b,s}$ for all
+    passengers who travel, on bus $b \in B$, from stop $s \in S$ to stop $s+1$.
+
+    \begin{align*}
+        \mathbf \overline{T}
+        &= \frac{1}{N}\sum_{i=1}^N W_i + L^P_i + M^P_i\\
+        &= \frac{1}{N}\sum_{i=1}^N W_i + \sum^{s \in S}
+        L^P_{i,s} + M^P_{i,s}\\
+        &= \frac{1}{N}\sum_{i=1}^N W_i + \sum^{b \in B}\sum^{s \in S}
+        N^B_{b,s}(L^B_{b,s} + M^B_{b,s}).
+    \end{align*}
+
+    And we can measure the value of $N$,
+    \[
+        N = \sum^{b \in B} \sum^{s \in S}
+        \max \left(0, N^B_{b,s} - N^B_{b, s-1}\right)
+    \]
+\end{proof}
+
+For simplicity, we will drop the $^B$ superscript when referring to these
+measurements in the future.
+
+\subsubsection{Measuring the number of passengers on a bus}
+\label{sec:num-passengers}
+
+\begin{theorem}
+    The number of passengers on bus $b \in B$ upon leaving stop $s \in S$ can
+    be measured,
+    \[
+        N_{b,s} = \sum_{r=1}^s N^+_{b,r} - \sum_{r=1}^s N^-_{b,r}
+    \]
+    where $N^+_{b,r}$ is a non-homogeneous Poisson random variable and
+    $N^-_{b,r}$ is a binomial random variable.
+\end{theorem}
+
+\begin{definition}[passenger boarding rates]
+    \hfill\par\nopagebreak
+    Let $\Lambda_s$ be the mean number of passengers boarding from stop $s
+    \in S$ on any given weekday,
+    \[
+        \Lambda_s = \Exp[N_s].
+    \]
+\end{definition}
+
+\begin{definition}[bus arrival and departure times]
+    \hfill
+    \begin{enumerate}
+        \item Let $t_{b,s}$ be the arrival time of bus $b \in B$ at stop $s \in S$.
+        \item Let $t^0_{b,s}$ be the \emph{last} departure time of some bus
+            from stop $s \in S$, \emph{preceding} the arrival of bus $b \in
+            B$, and let $t^0_{b,s} = 0$ when $b$ is the first bus arriving at
+            stop $s$ in a day.
+        \item Within the context of a single $b,s$ pair, we will use the
+            shorthand of $t_1, t_0$ to refer to the times $t_{b,s},
+            t^0_{b,s}$, respectively.
+    \end{enumerate}
+\end{definition}
+
+\begin{lemma}[boarding passengers]
+    The number of passengers boarding bus $b \in B$ at stop $s \in
+    S$ is a non-homogeneous Poisson process,
+    \[
+        N^+_{b,s} \sim \Pois(\Lambda_s
+        \left(\mathbb F(t_1) - \mathbb F(t_0)\right)),
+    \]
+    where $\mathbb F(t)$ is the cumulative distribution of the
+    probability that the arrival time of a single passenger is less
+    than or equal to $t$.
+\end{lemma}
+
+Letting $t_{b,s} = t_1$ be the arrival time of bus $b \in B$ at stop $s \in
+S$, and letting $t_0$ be the departure time of the last bus at stop $s$,
+$N^+_{b,s}$ is the number of passengers who arrive at stop $s$ between $t_0$
+and $t_1$. Per our assumptions, passenger arrivals are a non-homogeneous
+Poisson process, meaning that the arrival rates are not constant across all
+time intervals of equal lengths. Therefore,
 \[
-    T_i = W_i + L_i + M_i
+    N^+_{b,r} \sim \Pois\left(\lambda_{s, (t_0, t_1]}\right),
 \]
-While waiting time is dependent on the arrival time of each individual
-passenger, we can observe that loading time and moving time are experienced by
-every passenger on the bus or currently waiting to board the bus. Furthermore,
-we can observe that the number of passengers remains constant between stops,
-meaning that we can measure a single $N^B_{b,s}$ as the number of passengers
-on bus $b$ between stop $s$ and $s+1$, and that this number will include all
-of those passengers who boarded at stop $s$.
+where $\lambda_{s, \left(t_0, t_1]\right)}$
+is the arrival rate at stop $s$ over some time interval $(t_0, t_1]$.
 
-Because buses and trip segments and all distinct entities, we can partition,
+To measure this arrival rate, we define the probability that the arrival time of a
+passenger will be some time $t$, with a cumulative distribution function
+$\mathbb F(t)$,
+\begin{align*}
+    \Prob(t_* \le t) &= \mathbf F(t)\\
+    \Prob(t_0 < t_* \le t_1) &= \mathbf F(t_1) - \mathbf F(t_0)\\
+    \lambda_{s, (t_0, t_1]} &= \Lambda_s\left(\mathbb F(t_1) - \mathbb
+        F(t_0)\right).
+\end{align*}
+
+Observing recorded hourly passenger counts from the NYCT, we chose to model
+$\mathbb F(t)$ as the regularized sum of two Beta distributions, centered
+around the morning and evening rushes, respectively.
+
+\begin{gather*}
+    \begin{aligned}
+    &F_1(t) = \frac{\B(t; \alpha_1, \beta_1)}{\B(\alpha_1, \beta_1)}&
+    &&
+    &F_2(t) = \frac{\B(t; \alpha_2, \beta_2)}{\B(\alpha_2, \beta_2)}&\\
+    &&&\mathbb F(t) = \frac{F_1(t) + F_2(t)}{2},&
+    \end{aligned}
+\end{gather*}
+where $\B(\alpha, \beta)$, $\B(t; \alpha, \beta)$ are the complete and
+incomplete Beta functions, respectively.
+
+This allows us to define Algorithm~\ref{alg:loading-simple} for generating the
+number of passengers waiting for a bus arriving at stop $s \in S$. We will
+revisit and revise this algorithm in \S~\ref{sec:waiting-time}.
+\begin{algorithm}
+    \begin{algorithmic}
+        \Function{Loading}{$s \in S$, $t_1$: bus arrival time, $t_0$: time of
+        last departure}
+        \State lam $\gets \Lambda_s(\mathbb F(t_1) - \mathbb F(t_0))$
+        \State \Generate P $\sim$ Pois(lam)
+        \State \Return P
+        \EndFunction
+    \end{algorithmic}
+    \caption{Generate the number of passengers waiting to board a bus.}
+    \label{alg:loading-simple}
+\end{algorithm}
+
+\begin{definition}[passenger disembarkation rates]
+    \hfill
+    \begin{enumerate}
+        \item 
+            Let $\kappa_s$ be the mean number of passengers traveling to stop
+            $s \in S$ on any given weekday.
+
+            We assume the constraint that all passengers who board must also
+            disembark,
+            \[
+                \sum_{s \in S} \kappa_s = \sum_{s \in S} \Lambda_s.
+            \]
+
+        \item Let $N^B_s$ be the total number of passengers traveling from
+            stop $s \in S$ to stop $s+1$ in a day,
+            \[
+                N^B_s = \sum_{b \in B} \sum_{r=1}^s
+                N^+_{b,r} - N^-_{b,r}
+            \]
+    \end{enumerate}
+\end{definition}
+
+\begin{lemma}[disembarking passengers]
+    \label{lem:p_s}
+    Passengers disembark from bus $b \in B$ at stop $s \in S$ according to a
+    Bernoulli process with probability $p_s$, such that,
+    \[
+        N^-_{b,s} \sim \Binom(p_s, N_{b,s-1}),
+    \]
+    and
+    \[
+        p_s = \frac{\kappa_s}{\Exp[N^B_{s-1}]}.
+    \]
+\end{lemma}
+
+\begin{proof}
+    If $N_{b,s}$ passengers arrive at stop $s \in S$ on bus $b \in B$,
+    each of those passengers will either disembark at stop $s$, or remain on
+    the bus, with some probability $p_{i,s}$. Per our assumptions, the likelihood
+    that a passenger will disembark at a given stop is independent of their
+    point of origin, so $p_{i,s} = p_{j,s}$ for all $i,j$.
+
+    Therefore, passengers disembark at stop $s$ according to a Bernoulli
+    process with probability $p_s$. If there are $N_{b,s-1}$ passengers on the
+    bus, $N^-_{b,s}$ is the sum of $N_{b,s-1}$ Bernoulli trials, and is
+    distributed according to the Binomial distribution $\Binom(p_s, N_{b,s-1})$.
+
+    If $N^B_{s-1}$ is the total passengers arriving at stop $s$,
+    \[
+        \sum_{b \in B} N^-_{b,s} \sim \Binom(p_s, N^B_{s-1}),
+    \]
+    with a mean of $p_s N^B_{s-1}$.
+
+    Therefore,
+    \[
+        \frac{\Exp[\sum_{b \in B} N^-_{b,s}]}{\Exp[N^B_{s-1}]} = p_s
+    \]
+    or, by the definition of $\kappa_s$,
+    \[
+        \frac{\kappa_s}{\Exp[N^B_{s-1}]} = p_s.
+    \]
+\end{proof}
+
+    Lemma \ref{lem:p_s} leads us to Algorithm \ref{alg:p_s} for calculating
+    $p_s$ for each stop.
+
+    \begin{algorithm}
+        \begin{algorithmic}
+            \Function{Calculate-$P_s$}{$\mathbf\Lambda$: array of boarding rates,
+            $\boldsymbol\kappa$: array of disembarking rates}
+            \State $N^B \gets 0$
+            \For{$s \in S$}
+            \If{$\kappa_s = 0$}
+            \State $p_s \gets 0$
+            \Else
+            \State $p_s \gets \frac{k_s}{N^B}$
+            \EndIf
+            \State $N^B \gets N^B + \lambda_s - \kappa_s$
+            \EndFor
+            \State \Return $\mathbf p$
+            \EndFunction
+        \end{algorithmic}
+        \caption{Calculate the probability that a passenger will disembark at
+        stop $s$.}
+        \label{alg:p_s}
+    \end{algorithm}
+
+    Once $\mathbf p$ has been calculated for all $s \in S$, generating
+    $N^-_{b,s}$ is as simple as generating a random variable from the
+    distribution $\Binom(p_s, N_{b,s-1})$.
+
+\subsubsection{Measuring loading time}
+\label{sec:loading-time}
+
+\begin{definition}
+    \hfill
+    \begin{enumerate}
+        \item Let $\delta_i$ be the time for the $i$th passenger to board a
+            bus.
+        \item Let $\gamma_i$ be the time for the $i$th passenger to disembark
+            from a bus.
+        \item Let $L_{b,s}$ be the sum of $\delta_i$ for every passenger
+            boarding at $b,s$ and $\gamma_i$ for every passenger disembarking
+            at $b,s$.
+            \[
+                L_{b,s} = \sum_{i \in N^+_{b,s}} \delta_i +
+                \sum_{j \in N^-{b,s}} \gamma_j.
+            \]
+    \end{enumerate}
+\end{definition}
+
+Because fare collection only occurs when passengers board a bus, we are not
+particularly interested in precise modeling of $\gamma_i$. For simplicity, we
+have instead chosen to let $\gamma$ be a constant value.
+
+$\delta_i$, however, is the primary parameter under experimental scrutiny; we
+aim to measure system performance under a range of distributions for
+$\delta_i$. Looking to simulations involving \emph{task duration}, we chose to
+use the modified PERT distribution, a continuous distribution defined by
+a \emph{minimum}, \emph{likely}, \emph{maximum}, and \emph{skew}
+parameters\cite{_pertDistribution_2023}.
+
+\begin{definition}[PERT distribution]
+    \hfill\par\nopagebreak
+    The modified PERT distribution is obtained as a transformation of the Beta
+    distribution, with parameters $a, b, c, d$, such that,
+    \begin{align*}
+        \alpha &= 1 + d \frac{b - a}{c - a}\\
+        \beta &= 1 + d \frac{c - b}{c - a}\\
+        \Prob[X \le x] &= I_{\frac{c - a}{x - a}}(\alpha, \beta),
+    \end{align*}
+    where $I_z(\alpha, \beta)$ is the \emph{regularized incomplete beta
+    function}.
+\end{definition}
+
+This allows us to generate $\delta_i$ using cached values of $\alpha, \beta$,
 \[
-    \sum_i^N T_i = \sum_i^N W_i + \sum_b^B \sum_s^S N^B_{b,s} \left(L^B_{b,s}
-        M^B_{b,s}\right)
+    \delta_i = a + (c - a)\left(\mathcal B \sim \Beta(\alpha, \beta)\right),
+\]
+from which we can generate the random variable $L_{b,s}$,
+\[
+    L_{b,s} = \gamma N^-_{b,s} + \sum_{i=1}^{N^+_{b,s}} \delta_i.
 \]
 
-Our simulation measures, for discrete time intervals, the number of passengers
-on or boarding each bus $b \in B$ at every stop $s \in S$ of its journey, the
-length of those time intervals, and the \emph{sum} time spent by each
-passenger waiting for bus $b$ at stop $s$.
+\subsubsection{Measuring moving time}
+\label{sec:moving-time}
 
-\subsection{Generating random variables}
+The driving time from stop $s$ to $s+1$ is dependent upon a different system
+--- traffic conditions.
+\pagebreak[2]
 
-\subsubsection{Passenger arrivals}
+\begin{definition}
+    \hfill
+    \begin{enumerate}
+        \item Let $M_{b,s}$ be the time required for bus $b \in B$ to travel
+            from stop $s \in S$ to stop $s+1$.
+        \item Let $d_s$ be the distance from stop $s \in S$ to $s+1$.
+        \item Let $C$ be the maximum speed for any bus traveling with ideal
+            traffic conditions.
+        \item Let $\Pi_{t,s} \in [1, \infty)$ be the magnitude of traffic at
+            time $t$, between stops $s$ and $s+1$, such that,
+            \[
+                M_{b,s} = \frac{C d_s}{\Pi_t},
+            \]
+            where $t$ is the time of departure from stop $s$.
+    \end{enumerate}
+\end{definition}
 
-Passengers arrive at stop $s \in S$ according to a Poisson process, meaning
-that the total expected passengers within any given time interval is known,
-but the precise arrival times of individual passengers are randomly
-distributed within those time intervals. We measure these arrival rates as
-$\lambda_s$.
-
-Because our goal is to measure bus performance over an entire day, passengers
-arrive at different rates, depending on the time of day. Therefore,
-$\lambda_{s,(t_0,t_1)}$ must be a function of time. Using hourly passenger
-counts recorded by the New York Transit Company, we found that the sum of two
-\emph{beta} distributions effectively captured the distribution of passengers
-over the course of a day, with one sharply concentrated distribution during
-morning rush hour and one more less concentrated distribution during afternoon
-rush hours.
-
-We estimated these morning and evening rush hours according to the following
-distributions,
-\begin{align*}
-    Y &\sim Beta(6, 14)\\
-    V &\sim Beta(4, 2)\\
-\end{align*}
-For simplicity, we kept these distributions constant across across stops.
-
-Letting $f_Y(t_D), f_V(t_D)$ be the probability density functions of our rush hour
-distributions, where $t_D \in \mathbb R_{[0, 1]}$ is the fraction of the
-elapsed day at time $t$, we can measure,
+Traffic, like passenger arrivals, is dependent on the time of day, distributed
+according to the function $\mathbb G(t)$, a regularized sum of beta
+distributions. This distribution is mapped to the set of all real numbers
+greater than or equal to 1 using the following transformation,
 \[
-    \lambda_{s,(t_0, t_1]} = \frac{1}{2}\lambda_s\int_{t_{0,D}}^{t_{1,D}} f_Y(t_D) +
-    f_V(t_D) dt_V
-\].
-(The constant $\frac{1}{2}$ allows the sum of the two functions, when
-integrated over an entire day, to equal 1.)
+    \Pi_{t,s} = (1 + \mathbb G(t))^{\Gam_{t,s}},
+\]
+where $\Gam_{t,s} \sim \Gam(k, \theta)$ is a continuous Gamma random variable in
+the set of all positive real numbers.
 
-This integral is equal to the difference of the \emph{cumulative distribution
-function}, $F(t_D)$ at times $t_1$ and $t_0$.
+\subsubsection{Measuring waiting time}
+\label{sec:waiting-time}
 
-Finally, because various conditions can lead to particularly active or
-inactive days within the city, we introduced a \emph{daily scale} variable,
-generated once per simulation,
+\begin{definition}[waiting time]
+    \hfill
+    \begin{enumerate}
+        \item Let $t^P_{i,s}$ be the arrival time of the $i$th passenger at stop
+            $s \in S$
+        \item Let $t^A_{b,s}$ be the arrival time of bus $b \in
+            B$ at stop $s$.
+        \item As in \S \ref{sec:num-passengers}, $t^0_{b,s}$ is the
+            \emph{departure} time of the last bus to visit stop $s \in S$
+            before bus $b \in B$.
+        \item Let $W_i$ be the time that the $i$th passenger spends waiting
+            for their bus, such that,
+            \[
+                W_i = t^A_{b,s} - t^P_{i,s}
+            \]
+        \item Let $W^S_{b,s}$ be the sum time that passengers spend waiting
+            for bus $b \in B$ at stop $s \in S$, such that,
+            \[
+                W^S_{b,s} = \sum_{i \in N^+_{b,s}} W_i
+            \]
+    \end{enumerate}
+    \label{def:waiting-time}
+\end{definition}
+
+\begin{theorem}[waiting time]
+    Where $u_i$ is an independent uniformly distributed random variable, and
+    $\mathbb F(t)$ is the probability that the arrival time of a single
+    passenger is less than or equal to $t$,
+    \[
+        W^S_{b,s} = \sum_{i=1}^{N^+_{b,s}}
+        \inv\F\left(
+            u_i(\F(t^A_{b,s}) - \F(T^0_{b,s}))
+            + \F(t^0_{b,s})
+            \right),
+    \]
+    will yield accurately distributed $W^S_{b,s}$.
+    \label{thm:waiting-time}
+\end{theorem}
+
+\begin{proof}
+    For all passengers boarding bus $b \in B$ at stop $s \in S$, we know that
+    $t^P_{i,s}$ falls within the interval $(t^0_{b,s}, t^A_{b,s}]$.
+
+    By Bayes' theorem,
+    \begin{align*}
+        \Prob[t^0_{b,s} < T \le t^P_{i,s}
+        \mid t^0_{b,s} < T \le t^A_{b,s}]
+        &=
+        \frac{\Prob[t^0_{b,s} < T \le t^P_{i,s}]}
+        {\Prob[t^0_{b,s} < T \le t^A_{b,s}]}\\
+        &=
+        \frac{\F(t^P_{i,s}) - \F(t^0_{b,s})}
+        {\F(t^A_{b,s}) - \F(t^0_{b,s})}
+    \end{align*}
+
+Using the inverse transform method, we can substitute some uniformly generated
+probability for the left hand of this equation, and solve for $t^P_{i,s}$,
+yielding an equivalently distributed random variable.
+
+The sum of these random variables is equal to $W^S_{b,s}$.
+
+\end{proof}
+
+Unfortunately, because $\F(t)$ is the sum of non-linear functions, we do not
+have a readily available inverse $\inv\F(u)$.
+
+However, because $\F(t) = F_1(t) + F_2(t)$, we can decompose passenger arrival
+into the sum of two distinct Poisson processes, such that,
 \[
-    k \sim Beta(5, 5) + \frac{1}{2}
-\].
-
-Therefore, if some bus $b \in B$ arrives at stop $s \in S$ at time $t_1$, and
-the last bus to load passengers from stop $s$ closed its doors at $t_0$, the
-passengers waiting for bus $b$ at time $t_1$ will be,
-\[
-    N^W_{s,t_1} \sim Pois\left(\frac{1}{2}\lambda_s k \left(F(t_{1,D}) -
-    F(t_{0,D})\right)\right)
+    N^+_{b,s} \sim \Pois\left(
+            \Lambda_s \left(F_1(t_{b,s}) - F_1(t^0_{b,s})\right)
+        \right)
+        + \Pois\left(
+            \Lambda_s \left(F_2(t_{b,s}) - F_2(t^0_{b,s})\right)
+        \right)
 \]
 
-We can now generate this Poisson random variable using traditional methods.
-(For this simulation, we chose to use numpy's random number generator
-functions.)
+\begin{definition}[arrival components]
+    \hfill\par\nopagebreak
+    Let $N^+_{b,s,1}$ and $N^+_{b,s,2}$ be Poisson random variables generated
+    according to the arrival probabilities $F_1$ and $F_2$ respectively, such
+    that,
+    \[
+        N^+_{b,s} = N^+_{b,s,1} + N^+_{b,s,2}
+    \]
+    \label{def:components}
+\end{definition}
 
-\subsubsection{Passenger wait times}
+\begin{theorem}
+    Where $u_i$ is an independent uniformly distributed random variable and
+    $\frac{F_1(t) + F_2(t)}{2}$ is the probability that the arrival time of a
+    single passenger is less than or equal to $t$,
+    \[
+    \begin{split}
+        W^S_{b,s} = 
+        &\sum_{i=1}^{N^+_{b,s,1}}
+        \inv{F_1}\left(
+            u_i(F_1(t^A_{b,s}) - F_1(T^0_{b,s}))
+            + F_1(t^0_{b,s})
+        \right)\\
+        &+
+        \sum_{i=N^+_{b,s,1}+1}^{N^+_{b,s,1} + N^+_{b,s,2}}
+        \inv{F_2}\left(
+            u_i(F_2(t^A_{b,s}) - F_2(t^0_{b,s}))
+            + F_2(t^0_{b,s})
+        \right),
+    \end{split}
+\]
+\end{theorem}
 
-We have one step before we can load passengers onto bus $b \in B$, which is to
-measure the sum of the wait times for the passengers waiting at the stop at
-time $t_1$.
+We arrive at these two sums using the same approach as Theorem
+\ref{thm:waiting-time}, with the difference that $F_1$ and $F_2$ are both
+regularized incomplete beta functions, which have a computable inverse. Using
+this theorem, we can modify Algorithm \ref{alg:loading-simple} to create
+Algorithm \ref{alg:loading-waiting}, which generates both the number of waiting
+passengers and the sum of their wait time.
 
-Because passengers arrive according to an \emph{inhomogeneous} Poisson
-process, their arrival times are not uniformly distributed within a given time
-interval. We must instead determine the conditional probability of a
-passenger's arrival at some time between the departure of the previous bus and
-the arrival of the current, and generate arrival times according to that
-distribution. If we can find the inverse of the cumulative density function
-for this conditional probability, we can generate these times using an inverse
-transform method.
+\begin{algorithm}
+    \begin{algorithmic}
+        \Function{Loading-Waiting}{$s$: stop, $t_{b,s}$: bus arrival time,
+        $t^0_{b,s}$: last bus departure time}
+        \State $N \gets 0, W \gets 0$
+        \For{$f \in \{1, 2\}$}
+        \State $p \gets F_f(t_{b,s}) - F_f(t^0_{b,s})$
+        \State $\lambda \gets \Lambda_s p$
+        \State \Generate $n \sim \Pois(\lambda)$
+        \State $N \gets N + n$
+        \For{$i \in \{1 \ldots n\}$}
+        \State \Generate $u \sim U(0,1)$
+        \State $W \gets W + \inv {F_f}(up + F_f(t^0_{b,s}))$
+        \EndFor
+        \EndFor
+        \State \Return $N, W$
+        \EndFunction
+    \end{algorithmic}
+    \caption{Generate the number of waiting passengers and the
+    sum of their waiting time.}
+    \label{alg:loading-waiting}
+\end{algorithm}
 
-We can calculate the likelihood of a passenger arriving between time 
-$(t_0, t_*]$, given that the passenger arrives during the interval
-$(t_0, t_1]$,
-\begin{align*}
-    \Prob[t_0 < t \le t_* \mid t_0 < t \le t_1] &= \frac{\Prob[t_0 < t \le t_*]}{\Prob[t_0 <
-    t \le t_1]}\\
-                                                &= \frac{F_Y(t_*) - F_Y(t_0) +
-                                                F_V(t_*) - F_V(t_0)}
-                                                {F_Y(t_1) - F_Y(t_0) +
-                                                F_V(t_1) - F_V(t_0)}
-\end{align*}
+\subsection{Additional complexities}
 
-Ideally, we would generate some uniform variable $u \sim U(0, 1)$ and map that
-probability to some value $t_*$, but, because $u$ is derived from the
-combination of two non-linear functions, calculating this inverse is not easy.
-We can, however, simplify our task by considering passengers arriving
-according to each function separately.
+\subsubsection{System-wide daily magnitude}
 
-If a passenger arrives according to distribution $Y$,
-\begin{align*}
-    \Prob[t_0 < t \le t_* \mid t_0 < t \le t_1]
-    &= \frac{F_Y(t_*) - F_Y(t_0)}{F_Y(t_1) - F_Y(t_0)}\\
-    \shortintertext{Letting $u \in [0, 1]$ be this probability,}
-    u
-    &= \frac{F_Y(t_*) - F_Y(t_0)}{F_Y(t_1) - F_Y(t_0)}\\
-    \left(F_Y(t_1) - F_Y(t_0)\right)u + F_Y(t_0)
-    &= F_Y(t_*)\\
-    {F_Y}^{-1}\left(\left(F_Y(t_1) - F_Y(t_0)\right)u + F_Y(t_0)\right)
-    &= t_*
-\end{align*}
+External events can cause increases or decreases in traffic and passenger
+demand across an entire system. To model the ways in which our system handles
+above-average and below-average load, we introduced an additional random
+variable to the calculation of traffic and passenger arrival rates. New values
+for these variables were generated once per daily trial, according to a Beta
+distribution, offset to the interval of $[.5, 1.5]$, and then used in all
+arrival and traffic calculations for that day.
 
+For passenger arrival rates, the daily magnitude, $k_P$, was applied as a
+linear coefficient,
+\[
+    N^+_{b,s} \sim \Pois(k_P \Lambda_s
+    \left(\F(t_1) - \F(t_0)\right)).
+\]
 
+For traffic, the daily magnitude, $k_T$, was applied as an exponential factor,
+\[
+    \Pi_{t,s} = (1 + \mathbb G(t))^{k_T\Gam_{t,s}}.
+\]
+
+\subsubsection{Transfers between bus lines}
+
+The described model is sufficient for a single bus line, or multiple
+non-intersecting lines, but makes no consideration of passengers disembarking
+from one bus to board another. We can, however, account for transfers with a
+few modifications.
+
+\begin{definition}
+    \hfill
+    \begin{enumerate}
+        \item Let $\kappa^T_{s,r}$ be the expected number of passengers transferring
+            from stop $s \in S$ to stop $r \in S, r \ne s$, where 
+            $\kappa^T_{s,r} \le \kappa_s$.
+             
+            Note that the transfers are directional, with distinct values for
+            $\kappa_{s,r}$ and $\kappa_{r,s}$.
+
+        \item Let $p^T_{s,r}$ be the probability that a disembarking passenger is
+            transferring to $r$.
+
+        \item Let $N^T_{s,t}$ be the number of passengers waiting to transfer
+            from stop $s$ to $r$ at time $t$.
+
+        \item Let $t^T_{s,r}$ be the time of the conclusion of the last
+            unloading or loading of passengers to or from the transfer.
+
+        \item Let $W^T_{s,r,t}$ be the sum of wait times for all passengers at
+            transfer $s,r$ at time $t$.
+
+        \item Let $W^T_{s,r,*}$ denote $W^T_{s,r,t^T_{s,r}}$, i.e. the value
+            of $W^T_{s,r}$ at the time of the last unloading or loading event.
+
+        \item Let $N^T_{s,r,*}$ denote $N^T_{s,r,t^T_{s,r}}$, i.e. the number
+            of passengers waiting at the conclusion of the last unloading or
+            loading event.
+    \end{enumerate}
+\end{definition}
+
+We can calculate $p^T_{s,r}$ as
+\[
+    \frac{\kappa_s}{\kappa^T_{s,r}}.
+\]
+
+We can generate the number of passengers transferring from bus $b \in B$ to
+stop $s \in S$ as a binomial random variable with probability $p^T_{s,r}$,
+with the caveat that this number must be added to the number of passengers
+already waiting at transfer $s,r$, such that,
+\[
+    N^T_{s,r,t_{b,s}} = N^T_{s,r,*} + n \sim \Binom(p^T_{s,r}, N^+_{b,s}),
+\]
+and the sum waiting time of all passengers at the transfers at time $t_{b,s}$
+is,
+\[
+    N^T_{s,r,*}(t_{b,s} - t^T_{s,r}) + W^T_{s,r,*}.
+\]
+
+When a bus arrives at stop $r$, $N^+_{b,r}$ is now calculated as the
+passengers arriving according to the Poisson process plus $N^T_{s,r,t_{b,r}}$,
+and $W^T_{s,r,t_{b,r}}$ is added to $W^S_{b,r}$ for the total waiting time.
+
+At the time of a bus's departure from stop $r$, $N^T_{s,r,*} = 0$.
+
+Because transferring passengers will be counted as new passengers when they
+board their next bus, and to avoid overcounting, the sum of transferring
+passengers is subtracted from the sum of boarding passengers when calculating
+$N$.
+
+\subsubsection{Passengers arriving while bus is loading}
+
+Because passengers load sequentially over some interval of time, $(t_0, t_1]$,
+it is possible for $P \sim \Pois(\Lambda_{s,(t_0,t_1]})$ to be non-zero,
+meaning that passengers could continue to arrive while the bus is loading
+passengers. This is particularly likely during peak travel times, when arrival
+rates are high and large numbers of passengers waiting at the stop necessitate
+long loading times.
+
+To capture this possibility, an additional instance of $N^+_{b,s}$ is
+generated over the interval of time that bus $b$ spent loading at stop $s$.
+If this number is non-zero, another loading time is generated, and then
+another passenger arrival number, until the number of passengers arriving over
+the interval of loading time is equal to zero.
+
+\subsection{Performing the simulation}
+\label{sec:simulation}
+
+Our simulation is a Discrete Event Simulation, and maintains a priority queue
+of buses, sorted by the time of their next event, and a collection of state
+arrays enumerated in Figure \ref{fig:state}.
+
+\begin{figure}
+\caption{The simulation maintains a factored state in a number of arrays.}
+\begin{description}
+    \item[\ttfamily bus-state] The next event type for each bus $b \in B$.
+    \item[\ttfamily bus-stop] The current stop $s \in S$ for each bus $b \in
+        B$.
+    \item[\ttfamily passengers] The number of passengers waiting
+        for each bus $b \in B$.
+
+    \item[\ttfamily waiting] The number of passengers waiting at each stop $s
+        \in S$.
+
+    \item[\ttfamily last-load] The completion time of the last loading of
+        passengers from stop $s \in S$.
+
+    \item[\ttfamily last-transfer] The completion time of the last unloading
+        of passengers to the transfer $s \in S, r \in S$.
+\end{description}
+\label{fig:state}
+\end{figure}
+
+Every bus is given a unique id according to its route and the scheduled time
+of its first stop, even though the same physical bus could potentially
+complete several routes in a single day.
+
+Each bus will yield a particular \emph{event}, according to its state, at a
+specified simulation time.
+
+An \emph{event} is recorded as a fixed-length tuple containing the following
+fields,
+{
+
+    \centering\ttfamily
+    (time, duration, event-type, route, stop, bus-id, bus-count, stop-count)
+
+}
+
+Every bus starts a new event immediately after the completion of its current
+event, and events can be generated with one of six types, enumerated in Figure
+\ref{fig:event-type}.
+
+\begin{figure}
+    \caption{Events are generated with one of 6 types, according to the bus's
+    state.}
+\begin{description}
+    \item[\ttfamily unload]
+        Generate $N^-_{b,s}$ and the unloading portion of $L_{b,s}$, and
+        update the passenger counter for bus $b$.  Followed by a
+        \texttt{transfer-wait} event if there exist any transfers from stop
+        $s$, otherwise by a \texttt{wait} event.
+        
+    \item[\ttfamily transfer-wait]
+        Generate $W^T_{s,r,t_{b,s}}$ according to $N^T_{s,r,*}$ and the time
+        elapsed between $t^T_{s,r,*}$ and $t_{b,s}$. Always followed by
+        \texttt{transfer}.
+
+    \item[\ttfamily transfer]
+        Generate $N^T_{s,r,t_{b,s}}$ based on $N^-_{b,s}$ and
+        $N^T_{s,r,*}$. Always followed by \texttt{wait}.
+
+    \item[\ttfamily wait]
+        Generate $N^+_{b,s}$ and $W^S_{b,s}$ based on the arrival Poisson
+        process. Includes $N^T_{s,r,t_{b,s}}$ and $W^T_{s,r,t_{b,s}}$ and sets
+        updates the last transfer event with a waiting passenger count of
+        zero. Followed by \texttt{load} if $N^+_{b,s}$ is non-zero, otherwise
+        followed by \texttt{depart}.
+
+    \item[\ttfamily load]
+        Generate the loading portion of $L_{b,s}$, according to specified
+        passenger loading distribution, and update the passenger counter for
+        bus $b$. Always followed by \texttt{wait}.
+
+    \item[\ttfamily depart]
+        If $s+1$ exists, generate $M_{b,s}$ based on the distance and traffic
+        between $s, s+1$ and update the \texttt{bus-stop} counter. Followed by
+        \texttt{unload}, unless $s$ is the terminal stop, in which case $b$ is
+        removed from the event queue.
+\end{description}
+\label{fig:event-type}
+\end{figure}
+
+A bus is created for every scheduled route in a 24-hour period, and the
+simulation runs until every bus has finished its scheduled route.
+
+Once a trial is completed, the events are processed to extract a collection of
+single measurements for each trial.
+
+Once a sufficient number of trials have been performed, confidence intervals
+are calculated for each measured variable by resampling, with repetition, all
+measured values 1000 times, and calculating a mean for each resampling. The
+$2.5$th and $97.5$th percentiles provide the bounds of the confidence
+interval.
+
+\subsection{Variance reduction}
+
+Let $\theta$ be the true value for average passenger travel time, within our
+model, which we attempt to calculate as $\overline{X}$, by averaging
+simulation results. The quality of this estimator is affected both by the
+number of simulations we run, and the degree of \emph{variance} across those
+simulations. The size of our confidence interval, calculated in
+\S\ref{sec:simulation}, is a function of the \emph{variance} in possible
+values for $\overline{X}$, which is defined,
+\[
+    \Var(\overline{X}) = \Exp[(\overline{X} - \theta)^2)],
+\]
+from which, if we define $X_i$ as the measurement of a single trial and $n$
+the total number of trials, we can derive,
+\[
+    \Var(\overline{X}) = \frac{1}{n}\Exp[(X_i - \theta)^2].
+\]
+
+We would like to reduce the number of required simulations by finding an
+estimator with the same expected value as $X$, but with less variance. I chose
+to make one such reduction using the approach of \emph{antithetic
+variables}\cite{sheldonross_varianceReduction_2006}.
+
+Consider the two random variables, $U_1 = U \sim U(0, 1)$ and $U_2 = (1 - U)
+\sim U(0, 1)$. Both variables have the same distribution, while both are also
+negatively correlated. As such, any pair of random variables generated from these
+uniform random variables, by inverse transform method, will also have the same
+distribution, and be negatively correlated.
+
+If we generate $n$ samples of $U$, and use the inverse transform function
+$h(u)$ to generate $n$ values of $h(U_i)$ and $n$ values of $h(1 - U_i)$, we
+will have $2n$ samples with the same mean and distribution as $2n$ samples
+generated from $2n$ unique values of $h(U_i)$. However, by the law of
+associativity, if we first create $n$ random variables,
+$\frac{1}{2}\left(h(U_i) + h(1 - U_i)\right)$, those $n$ random variables will
+have the same mean, but a lower variance, because $h_1$ and $h_2$ are
+negatively correlated around $\theta$, such that, if $h_1 - \theta$ is
+positive, $h_2 - \theta$ must be negative.
+
+Our simulation generates thousands of random variables for each trial, so
+generating antithetic variables for each one is unfeasible, however, there are
+\emph{two} single samples which have a significant impact on the system-wide
+performance for an entire trial --- the daily magnitude variables $k_P$ and
+$k_T$.
+
+When antithethic variables are enabled, each call to \texttt{simulate}
+generates 2 uniform random variables, $U_P, U_T$ and performs 4 simulations,
+\begin{enumerate}
+    \item $k_P$ derived from $U_P$ and $k_T$ derived from $U_T$,
+    \item $k_P$ derived from $U_P$ and $k_T$ derived from $1 - U_T$,
+    \item $k_P$ derived from $1 - U_P$ and $k_T$ derived from $U_T$,
+    \item $k_P$ derived from $1 - U_P$ and $k_T$ derived from $1 - U_T$.
+\end{enumerate}
+
+The measurements from these 4 trials are then averaged together and reported
+as a single trial, with the conference that repeated groups will have the same
+mean as individual samplings with independent uniform random variables, but
+smaller variance.
+
+Using this form of antithetic random variable generation yielded smaller
+confidence intervals with fewer trials.
 
 \section{General Discussion}
+
+I believe that I can perform this simulation even more quickly by generating a
+single Poisson random variable based on $\sum_{s \in S}k^P_i\Lambda_s$,
+distributing that variable to all stops in $S$ according to binomial random
+variables, and then generating all arrival times as random variables across
+the entire interval of the day. These arrival times can be sorted into an array
+of low-precision floating points and used to quickly generate passenger counts
+as bus times are simulated throughout the day. This would eliminate hundreds of
+costly Poisson variable generations per trial, and remove the need of
+calculating conditional probabilities for the arrival time calculations, with
+a tolerable memory cost.
+
+\printbibliography
 
 \end{document}
